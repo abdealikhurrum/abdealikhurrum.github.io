@@ -1,0 +1,25 @@
+﻿{
+  "options" : {
+    "device" : "any",
+    "keyboardBaseUri" : "http://abdealikhurrum.github.io/",
+    "fontBaseUri" : "http://abdealikhurrum.github.io/"
+  },
+  "keyboard" : {
+    "id" : "lsd",
+    "name" : "LISAN",
+    "filename" : "lsd-1.0.js",
+    "version" : "1.0",
+    "lastModified" : "2017-12-01T08:45:27.765-06:00",
+    "rtl" : true,
+    "font" : {
+      "family" : "FatemiMaqala",
+      "source" : "FatemiMaqala-Regular.ttf"
+    },
+    "languages" : [
+      {
+        "id" : "ar",
+        "name" : "Arabic"
+      }
+      ]
+  }
+}
