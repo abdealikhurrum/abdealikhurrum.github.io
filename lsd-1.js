@@ -6,7 +6,7 @@ function Keyboard_lsd()
   this.KV={F:' 1em "FatemiMaqala"',K102:0,BK:new Array("ذ","1","2","3","4","5","6","7","8","9","0","-","=","","","","ض","ص","ث","ق","ف","غ","ع","ه","خ","ح","ج","د","\\","","","","ش","س","ي","ب","ل","ا","ت","ن","م","ك","ط","","","","","","","ئ","ء","ؤ","ر","ال","ى","ة","و","ز","ظ","","","","","","","ّ","!","@","#","$","%",">","<","۞",")","(","","+","","","","َ","ُ","ٗ","ؕ","ڤ","إ","ژ","ھ","ہ","چھے","چ","]","[","","","","ِ","","ے","پ","اٰ","أ","ـ","،","ں","گ","\"","","","","","","","ٓ","ْ","ۚ","ۨ","٬","آ","ۃ","/",".","؟","","","","","","")};this.KDU=1;
   this.KH='';
   this.KM=0;
-  this.KBVER="1.0";
+  this.KBVER="1";
   this.KRTL=1;
   this.KVKD="T_SAW T_SA T_AS T_RA T_TUS T_QR T_RH T_B T_BH T_BHS T_BHHS T_Kzabr T_KZer T_Maddah T_Semi T_SingQuote T_goalHamza T_Laa T_LaaU T_LaaD T_LaaK T_LaaM T_Rreh T_Ddeh T_Tteh T_Ara0 T_Ara1 T_Ara2 T_Ara3 T_Ara4 T_Ara5 T_Ara6 T_Ara7 T_Ara8 T_Ara9 T_Guj0 T_Guj1 T_Guj2 T_Guj3 T_Guj4 T_Guj5 T_Guj6 T_Guj7 T_Guj8 T_Guj9 T_Afghani T_Yen T_Ray T_GujRup T_Rupee T_mult T_divide T_asterisk T_fivepoint T_Caret T_zwj T_zwnj T_Sanah T_Samvat T_Footnote T_Safha T_Poetry T_Number T_Takhallus T_Misra T_Ayah T_Sajda T_arabPercent";
   this.KVKL={

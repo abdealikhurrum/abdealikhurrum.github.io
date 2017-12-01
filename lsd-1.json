@@ -7,8 +7,8 @@
   "keyboard" : {
     "id" : "lsd",
     "name" : "LISAN",
-    "filename" : "lsd-1.0.js",
-    "version" : "1.0",
+    "filename" : "lsd-1.js",
+    "version" : "1",
     "lastModified" : "2017-12-01T09:15:11.956-06:00",
     "rtl" : true,
     "font" : {
