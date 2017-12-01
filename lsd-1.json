@@ -1,7 +1,7 @@
 ﻿{
   "options" : {
     "device" : "any",
-    "keyboardBaseUri" : "http://abdealikhurrum.github.io/",
+    "keyboardBaseUri" : "http://abdealikhurrum.github.io/lsd-1.js",
     "fontBaseUri" : "http://abdealikhurrum.github.io/"
   },
   "keyboard" : {
