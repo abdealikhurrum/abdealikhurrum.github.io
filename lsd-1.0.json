@@ -1,8 +1,8 @@
 ﻿{
   "options" : {
     "device" : "any",
-    "keyboardBaseUri" : "https://rawgit.com/abdealikhurrum/abdealikhurrum.github.io/master/",
-    "fontBaseUri" : "https://rawgit.com/abdealikhurrum/abdealikhurrum.github.io/master/"
+    "keyboardBaseUri" : "https://rawgit.com/abdealikhurrum/font-fatemi/master/keyboards/keyman",
+    "fontBaseUri" : "https://rawgit.com/abdealikhurrum/font-fatemi/master/"
   },
   "keyboard" : {
     "id" : "lsd",
