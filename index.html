@@ -1,87 +1,63 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <!-- Set the viewport width to match phone and tablet device widths -->                         
-    <meta name="viewport" content="width=device-width,user-scalable=no" /> 
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Abdeali Khurrum — Projects</title>
+  <meta name="description" content="Projects by Abdeali Khurrum: ashaar.js, ashaar.js for Word, the LigaCheh keyboard, and the FatemiMaqala and AlFatemi fonts.">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap">
+      <a class="wordmark" href="index.html">Abdeali Khurrum</a>
+      <nav class="site-nav">
+        <a href="index.html">Projects</a>
+        <a href="privacy.html">Privacy</a>
+        <a href="contact.html">Contact</a>
+      </nav>
+    </div>
+  </header>
 
-    <!-- Allow KeymanWeb to be saved to the iPhone home screen -->
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    
-    <!-- Enable IE9 Standards mode -->
-    <meta http-equiv="X-UA-Compatible" content="IE=edge" /> 
-    <title>lsd keyman keyboard</title>
-  </head>
-  <body>
-      <p> Install Keyman for your mobile device/tablet from the App/Play Store </p>
-      <p>App Store: <a href="https://itunes.apple.com/us/app/keyman/id933676545?mt=8"> Keyman for iOS </a></p>
-      <p>Play Store: <a href="https://play.google.com/store/apps/details?id=com.tavultesoft.kmapro&hl=en"> Keyman for Android </a></p>
-    <a href="keyman://localhost/open?direct=true&url=https://rawgit.com/abdealikhurrum/abdealikhurrum.github.io/master/lsd-1.0.json" >LSD keyboard for iOS and Android</a>
-    <a href="https://rawgit.com/abdealikhurrum/abdealikhurrum.github.io/master/lsd-1.0.json">json</a><a href="https://rawgit.com/abdealikhurrum/abdealikhurrum.github.io/master/lsd-1.0.js">js</a>
-    <br/>
-    <p>Install Keyman for your PC or Mac from Keyman.com. <a href="http://keyman.com/desktop/">PC</a> <a href="http://keyman.com/macos/">Mac</a></p>
-    <p>Desktop keyboard: <a href="http://abdealikhurrum.github.io/lsd.kmp"> LSD keyboard for Desktops (Mac and PC) </a>
+  <main>
+    <div class="wrap">
+      <section class="hero">
+        <div class="arabic">لسان الدعوة</div>
+        <h1>Tools for Lisān ud-Daʿwat &amp; Arabic-script writing</h1>
+        <p>Open-source projects for typesetting, typing, and reading Arabic, Urdu, and Persian — a poetry formatter, a Word add-in, a multi-platform keyboard, and two typefaces.</p>
+      </section>
 
-  <h1>Pastiera keyboard</h1>
-    <p>For use with the <a href="https://www.unihertz.com/products/titan-2"> Unihertz Titan 2</a> along with <a href="https://github.com/palsoftware/pastiera/releases">Pastiera custom keyboard</a></p>
-    <p><a href="https://github.com/abdealikhurrum/font-fatemi/blob/8e6c496be778ce0fd4def0e4eeb1f632ae86b412/keyboards/PastieraKeyboard-ArabicLSD.json">Link to keyboard JSON file</a></p>
-    <p>To install, go to either Keyboard & Timing (0.66 stable) or Auto-correction > Languages and Maps (0.8 preview) to add the layout. In 0.8 preview, you can use ar_EG as the locale and it will show as Arabic Egypt. in 0.8 you will have to 
-    save in the layout window for the Input method to be updated. I also recommend turning off auto-capitalize in the Smart Features settings menu.</p>
+      <section class="grid">
+        <a class="card" href="ashaar-js.html">
+          <h3>ashaar.js</h3>
+          <p>A JavaScript library that formats Arabic/Urdu/Persian poetry in HTML, with kashida justification.</p>
+        </a>
+        <a class="card" href="ashaar-word.html">
+          <h3>ashaar.js for Word</h3>
+          <p>A Microsoft Word add-in for entering and justifying poetry blocks as native RTL tables.</p>
+        </a>
+        <a class="card" href="keyboard.html">
+          <h3>LigaCheh Keyboard</h3>
+          <p>A Lisān ud-Daʿwat keyboard for iOS, Android, Windows, and macOS.</p>
+        </a>
+        <a class="card" href="fatemimaqala.html">
+          <span class="arabic">فاطمي مقالة</span>
+          <h3>FatemiMaqala</h3>
+          <p>A naskh-style typeface for Lisān ud-Daʿwat and Arabic-script text.</p>
+        </a>
+        <a class="card" href="alfatemi.html">
+          <span class="arabic">الفاطمي</span>
+          <h3>AlFatemi</h3>
+          <p>A companion display typeface for headings and titles.</p>
+        </a>
+      </section>
+    </div>
+  </main>
 
-     <h1>KeymanWeb Sample 1</h1>
-    <textarea cols="20" rows="5"></textarea>
-    
-    <!--
-      In this example, we are loading KeymanWeb late.  If you focus on a control early (e.g. a search box), 
-      you may want to place the KeymanWeb code into the head instead, to ensure it is available by the
-      time the user wants to start typing.
-    -->
-
-    <!-- KeymanWeb script --> 
-    <script src="https://s.keyman.com/kmw/engine/2.0.473/keymanweb.js"></script>
-    
-    <!-- 
-      For desktop browsers, a script for the user interface must be inserted here.
-       
-      Standard UIs are toggle, button, float and toolbar.  
-      The toolbar UI is best for any page designed to support keyboards for 
-      a large number of languages.
-    -->
-    <script src="https://s.keyman.com/kmw/engine/2.0.473/kmwuitoggle.js"></script>
-    
-    <!-- Initialization: set paths to keyboards, resources and fonts as required -->
-    <script>
-      (function(kmw) {
-        kmw.init();
-        kmw.addKeyboards('@eng');
-        kmw.addKeyboards('@tha');
-      })(tavultesoft.keymanweb);
-    </script>
-    <script src='./lsd-1.0_load.js'></script>
-    <p> Test 3CX chat features on this website also </p>
-    <call-us 
-    style="position: fixed; bottom: 8px; right: 8px; z-index: 99999;--call-us-form-header-background:#007bc7;--call-us-header-text-color:#ffffff;--call-us-form-height:470px;--call-us-form-width:250px;"
-    phonesystem-url="https://exnpbx.tx.3cx.us/"
-    party="generaltechsupport"
-    allow-call="true"
-    allow-video="false"
-    authentication="both"
-    invite-message= "Hello! How can I help you?"
-    operator-name="Support"
-    email-integration-url="helpdesk@exordiumnetworks.com"
-    allow-soundnotifications="false"
-    enable-poweredby="false"
-    ignore-queueownership="false"
-    show-typing-indicator="true"
-    auto-focus="true"
-    enable-onmobile="true"
-    popout="true"
-    window-title="Chat with us!"
-    show-operator-actual-name="true"
-    animation-style="none"
-    minimized="true"
-    minimized-style="bubble">
-</call-us>
-<script src="https://exnpbx.tx.3cx.us/callus.js" charset="utf-8"></script>
-  </body>
+  <footer class="site-footer">
+    <div class="wrap">
+      <p>© 2026 Abdeali Khurrum · <a href="privacy.html">Privacy</a> · <a href="contact.html">Contact</a></p>
+    </div>
+  </footer>
+</body>
 </html>
-
