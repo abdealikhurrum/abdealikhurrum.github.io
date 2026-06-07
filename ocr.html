@@ -76,7 +76,7 @@
 
       <section>
         <p>Upload a scan or photo of a Lisān ud-Daʿwat page — typically set in FatemiMaqala or Kanz al-Marjaan — and this tool recognises the text and drops it into an editable box rendered in FatemiMaqala. Everything runs locally in your browser; nothing is uploaded to a server.</p>
-        <p class="note">Baseline model: this demo uses Tesseract's stock Arabic model, which reads letters well but drops or mangles the iʿrāb (vowel marks) and the extended Urdu/Persian letters that Lisān ud-Daʿwat depends on. It is wired so a custom <code>fatemi.traineddata</code> — trained on text rendered in these exact fonts — can be dropped in to replace it. Treat the output as a draft to correct, not a finished transcription.</p>
+        <p class="note">Baseline model: this demo uses Tesseract's stock Arabic model, which doesn't know the extended Urdu/Persian letters Lisān ud-Daʿwat uses and tends to drop the iʿrāb (vowel marks). Getting the base letters right is the priority; vocalization is a nice-to-have in Lisān ud-Daʿwat, captured when it's present. It is wired so a custom <code>fatemi.traineddata</code> — trained on text rendered in these exact fonts, voweled and plain — can be dropped in to replace it. Treat the output as a draft to correct, not a finished transcription.</p>
       </section>
 
       <div class="ocr-grid">
@@ -118,7 +118,7 @@
         <h2>How it works &amp; where it's headed</h2>
         <ul>
           <li><strong>Now:</strong> in-browser recognition via Tesseract.js (WASM), no backend.</li>
-          <li><strong>Next:</strong> a custom recognizer trained on synthetic lines — Unicode Lisān ud-Daʿwat text rendered in FatemiMaqala and Kanz al-Marjaan with scan-like augmentation — to capture the iʿrāb and extended letters that stock Arabic OCR misses.</li>
+          <li><strong>Next:</strong> a custom recognizer trained on synthetic lines — Unicode Lisān ud-Daʿwat text rendered in FatemiMaqala and Kanz al-Marjaan with scan-like augmentation, in both voweled and plain forms — to read the extended letters stock Arabic OCR misses and capture the iʿrāb when it's present.</li>
           <li><strong>Then:</strong> page layout detection for multi-line scans, and a correction loop that turns your edits into real-world training data.</li>
         </ul>
       </section>
