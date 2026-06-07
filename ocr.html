@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lisān OCR — Abdeali Khurrum</title>
+  <meta name="description" content="In-browser OCR for Lisān ud-Daʿwat texts set in FatemiMaqala and Kanz al-Marjaan. Upload a page, get editable text.">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    /* Page-local styles for the OCR tool. Shared chrome comes from styles.css. */
+    .ocr-grid { display: grid; gap: 18px; grid-template-columns: 1fr; margin-top: 18px; }
+    @media (min-width: 760px) { .ocr-grid { grid-template-columns: 1fr 1fr; } }
+
+    .drop {
+      border: 2px dashed var(--line); border-radius: var(--radius); background: var(--surface);
+      padding: 28px 20px; text-align: center; color: var(--muted); cursor: pointer;
+      transition: border-color .15s ease, background .15s ease;
+    }
+    .drop:hover, .drop.dragover { border-color: var(--accent); background: #f3f6f5; }
+    .drop strong { color: var(--ink); }
+    .drop input { display: none; }
+
+    .preview { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+      padding: 12px; min-height: 120px; display: flex; align-items: center; justify-content: center; }
+    .preview img { max-width: 100%; height: auto; border-radius: 8px; display: block; }
+    .preview .empty { color: var(--muted); font-size: 0.95rem; }
+
+    .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 16px 0; }
+    .controls label { font-size: 0.9rem; color: var(--muted); }
+    .controls select {
+      font: inherit; font-size: 0.95rem; padding: 8px 10px; border: 1px solid var(--line);
+      border-radius: 8px; background: var(--surface); color: var(--ink);
+    }
+    .btn[disabled] { opacity: 0.5; pointer-events: none; }
+
+    .progress { height: 6px; background: var(--line); border-radius: 999px; overflow: hidden;
+      margin: 4px 0 14px; display: none; }
+    .progress.show { display: block; }
+    .progress > span { display: block; height: 100%; width: 0%; background: var(--accent);
+      transition: width .2s ease; }
+    .status { font-size: 0.9rem; color: var(--muted); min-height: 1.2em; margin-bottom: 10px; }
+
+    .result-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .result-head h2 { margin: 0; }
+    textarea#out {
+      width: 100%; min-height: 240px; resize: vertical; margin-top: 10px;
+      font-family: "FatemiMaqala", serif; font-size: 1.6rem; line-height: 2;
+      direction: rtl; text-align: right; unicode-bidi: plaintext;
+      border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface);
+      color: var(--ink); padding: 16px;
+    }
+    textarea#out:focus { outline: none; border-color: var(--accent); }
+    .copied { color: var(--accent); font-size: 0.85rem; opacity: 0; transition: opacity .2s; }
+    .copied.show { opacity: 1; }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap">
+      <a class="wordmark" href="index.html">Abdeali Khurrum</a>
+      <nav class="site-nav">
+        <a href="index.html">Projects</a>
+        <a href="privacy.html">Privacy</a>
+        <a href="contact.html">Contact</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="wrap">
+      <div class="page-head">
+        <p class="eyebrow">Tool</p>
+        <h1>Lisān OCR</h1>
+        <p class="tagline">Read Lisān ud-Daʿwat pages into editable text, in your browser.</p>
+      </div>
+
+      <section>
+        <p>Upload a scan or photo of a Lisān ud-Daʿwat page — typically set in FatemiMaqala or Kanz al-Marjaan — and this tool recognises the text and drops it into an editable box rendered in FatemiMaqala. Everything runs locally in your browser; nothing is uploaded to a server.</p>
+        <p class="note">Baseline model: this demo uses Tesseract's stock Arabic model, which doesn't know the extended Urdu/Persian letters Lisān ud-Daʿwat uses and tends to drop the iʿrāb (vowel marks). Getting the base letters right is the priority; vocalization is a nice-to-have in Lisān ud-Daʿwat, captured when it's present. It is wired so a custom <code>fatemi.traineddata</code> — trained on text rendered in these exact fonts, voweled and plain — can be dropped in to replace it. Treat the output as a draft to correct, not a finished transcription.</p>
+      </section>
+
+      <div class="ocr-grid">
+        <div>
+          <label class="drop" id="drop">
+            <input type="file" id="file" accept="image/*">
+            <p><strong>Drop an image here</strong> or click to choose.</p>
+            <p style="font-size:0.85rem;margin:0;">PNG, JPG, or a photo of a page.</p>
+          </label>
+        </div>
+        <div class="preview" id="preview">
+          <span class="empty">Image preview will appear here.</span>
+        </div>
+      </div>
+
+      <div class="controls">
+        <label for="lang">Model:</label>
+        <select id="lang">
+          <option value="ara">Arabic (stock baseline)</option>
+          <option value="ara+fas+urd">Arabic + Persian + Urdu (stock)</option>
+          <option value="fatemi">Custom: FatemiMaqala (if installed)</option>
+        </select>
+        <button class="btn" id="run" disabled>Recognise text</button>
+      </div>
+
+      <div class="progress" id="progress"><span id="bar"></span></div>
+      <div class="status" id="status"></div>
+
+      <section>
+        <div class="result-head">
+          <h2>Recognised text</h2>
+          <button class="btn secondary" id="copy" type="button">Copy</button>
+        </div>
+        <span class="copied" id="copied">Copied ✓</span>
+        <textarea id="out" dir="rtl" placeholder="Recognised text appears here. Edit freely — your corrections are the most valuable training data for a future custom model."></textarea>
+      </section>
+
+      <section>
+        <h2>How it works &amp; where it's headed</h2>
+        <ul>
+          <li><strong>Now:</strong> in-browser recognition via Tesseract.js (WASM), no backend.</li>
+          <li><strong>Next:</strong> a custom recognizer trained on synthetic lines — Unicode Lisān ud-Daʿwat text rendered in FatemiMaqala and Kanz al-Marjaan with scan-like augmentation, in both voweled and plain forms — to read the extended letters stock Arabic OCR misses and capture the iʿrāb when it's present.</li>
+          <li><strong>Then:</strong> page layout detection for multi-line scans, and a correction loop that turns your edits into real-world training data.</li>
+        </ul>
+      </section>
+
+      <a class="back" href="index.html">← All projects</a>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <p>© 2026 Abdeali Khurrum · <a href="privacy.html">Privacy</a> · <a href="contact.html">Contact</a></p>
+    </div>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script>
+  (function () {
+    "use strict";
+
+    // Where to look for a custom-trained model. Drop fatemi.traineddata.gz into
+    // assets/tessdata/ and the "Custom: FatemiMaqala" option will use it.
+    var CUSTOM_LANG_PATH = "assets/tessdata/";
+
+    var fileInput = document.getElementById("file");
+    var drop      = document.getElementById("drop");
+    var preview   = document.getElementById("preview");
+    var runBtn    = document.getElementById("run");
+    var langSel   = document.getElementById("lang");
+    var progress  = document.getElementById("progress");
+    var bar       = document.getElementById("bar");
+    var statusEl  = document.getElementById("status");
+    var out       = document.getElementById("out");
+    var copyBtn   = document.getElementById("copy");
+    var copied    = document.getElementById("copied");
+
+    var currentFile = null;
+
+    function setStatus(msg) { statusEl.textContent = msg || ""; }
+    function setProgress(p) {
+      progress.classList.toggle("show", p != null);
+      if (p != null) bar.style.width = Math.round(p * 100) + "%";
+    }
+
+    function showImage(file) {
+      currentFile = file;
+      var url = URL.createObjectURL(file);
+      preview.innerHTML = "";
+      var img = new Image();
+      img.onload = function () { URL.revokeObjectURL(url); };
+      img.src = url;
+      preview.appendChild(img);
+      runBtn.disabled = false;
+      setStatus("");
+    }
+
+    fileInput.addEventListener("change", function (e) {
+      if (e.target.files && e.target.files[0]) showImage(e.target.files[0]);
+    });
+
+    ["dragenter", "dragover"].forEach(function (ev) {
+      drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add("dragover"); });
+    });
+    ["dragleave", "drop"].forEach(function (ev) {
+      drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove("dragover"); });
+    });
+    drop.addEventListener("drop", function (e) {
+      var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      if (f && f.type.indexOf("image/") === 0) showImage(f);
+    });
+
+    runBtn.addEventListener("click", async function () {
+      if (!currentFile) return;
+      var lang = langSel.value;
+      runBtn.disabled = true;
+      out.value = "";
+      setProgress(0);
+      setStatus("Loading model…");
+
+      var opts = {
+        logger: function (m) {
+          if (m.status) setStatus(m.status + (m.progress ? " " + Math.round(m.progress * 100) + "%" : ""));
+          if (typeof m.progress === "number") setProgress(m.progress);
+        }
+      };
+      // Custom model is fetched from our own assets dir; stock langs from the CDN default.
+      if (lang === "fatemi") opts.langPath = CUSTOM_LANG_PATH;
+
+      try {
+        var result = await Tesseract.recognize(currentFile, lang, opts);
+        out.value = (result.data.text || "").trim();
+        setStatus(out.value ? "Done. Review and correct the text below." : "No text detected — try a clearer or higher-contrast image.");
+      } catch (err) {
+        console.error(err);
+        setStatus("Recognition failed: " + (err && err.message ? err.message : err) +
+                   (lang === "fatemi" ? " (Is fatemi.traineddata.gz in " + CUSTOM_LANG_PATH + "?)" : ""));
+      } finally {
+        setProgress(null);
+        runBtn.disabled = false;
+      }
+    });
+
+    copyBtn.addEventListener("click", async function () {
+      if (!out.value) return;
+      try {
+        await navigator.clipboard.writeText(out.value);
+        copied.classList.add("show");
+        setTimeout(function () { copied.classList.remove("show"); }, 1200);
+      } catch (e) {
+        out.select();
+        document.execCommand("copy");
+      }
+    });
+  })();
+  </script>
+</body>
+</html>
