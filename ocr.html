@@ -52,6 +52,9 @@
     textarea#out:focus { outline: none; border-color: var(--accent); }
     .copied { color: var(--accent); font-size: 0.85rem; opacity: 0; transition: opacity .2s; }
     .copied.show { opacity: 1; }
+    .consent { display: flex; gap: 10px; align-items: flex-start; margin: 12px 0;
+      font-size: 0.95rem; color: var(--ink); cursor: pointer; }
+    .consent input { margin-top: 4px; flex: none; }
   </style>
 </head>
 <body>
@@ -75,7 +78,7 @@
       </div>
 
       <section>
-        <p>Upload a scan or photo of a Lisān ud-Daʿwat page — typically set in FatemiMaqala or Kanz al-Marjaan — and this tool recognises the text and drops it into an editable box rendered in FatemiMaqala. Everything runs locally in your browser; nothing is uploaded to a server.</p>
+        <p>Upload a scan or photo of a Lisān ud-Daʿwat page — typically set in FatemiMaqala or Kanz al-Marjaan — and this tool recognises the text and drops it into an editable box rendered in FatemiMaqala. Recognition runs entirely in your browser; the image isn't uploaded for OCR. (You can separately, and only if you opt in, contribute a correction to help train the model — see below.)</p>
         <p class="note">Baseline model: this demo uses Tesseract's stock Arabic model, which doesn't know the extended Urdu/Persian letters Lisān ud-Daʿwat uses and tends to drop the iʿrāb (vowel marks). Getting the base letters right is the priority; vocalization is a nice-to-have in Lisān ud-Daʿwat, captured when it's present. It is wired so a custom <code>fatemi.traineddata</code> — trained on text rendered in these exact fonts, voweled and plain — can be dropped in to replace it. Treat the output as a draft to correct, not a finished transcription.</p>
       </section>
 
@@ -114,12 +117,27 @@
         <textarea id="out" dir="rtl" placeholder="Recognised text appears here. Edit freely — your corrections are the most valuable training data for a future custom model."></textarea>
       </section>
 
+      <section id="contribute-box">
+        <h2>Help improve the model</h2>
+        <p class="note">Optional and off by default. If you turn this on, the image you uploaded and your corrected text are sent to an open Lisān ud-Daʿwat OCR training set, so the recogniser improves over time. Please don't contribute anything private or sensitive. See the <a href="privacy.html">privacy policy</a>.</p>
+        <label class="consent">
+          <input type="checkbox" id="consent">
+          <span>I agree to contribute this image and my corrected text to the open Lisān ud-Daʿwat OCR training set.</span>
+        </label>
+        <div class="btn-row">
+          <button class="btn" id="contribute" type="button" disabled>Contribute correction</button>
+          <button class="btn secondary" id="download" type="button" disabled>Download my contribution</button>
+        </div>
+        <div class="status" id="contribStatus"></div>
+      </section>
+
       <section>
         <h2>How it works &amp; where it's headed</h2>
         <ul>
           <li><strong>Now:</strong> in-browser recognition via Tesseract.js (WASM), no backend.</li>
           <li><strong>Next:</strong> a custom recognizer trained on synthetic lines — Unicode Lisān ud-Daʿwat text rendered in FatemiMaqala and Kanz al-Marjaan with scan-like augmentation, in both voweled and plain forms — to read the extended letters stock Arabic OCR misses and capture the iʿrāb when it's present.</li>
-          <li><strong>Then:</strong> page layout detection for multi-line scans, and a correction loop that turns your edits into real-world training data.</li>
+          <li><strong>Now (opt-in):</strong> a correction loop — if you choose to contribute, your edits become real-world training data that improves the model over time.</li>
+          <li><strong>Then:</strong> page layout detection for multi-line scans.</li>
         </ul>
       </section>
 
@@ -142,6 +160,10 @@
     // assets/tessdata/ and the "Custom: FatemiMaqala" option will use it.
     var CUSTOM_LANG_PATH = "assets/tessdata/";
 
+    // Deployed corrections Worker URL (see corrections-worker/README.md).
+    // Leave empty to fall back to downloading the contribution as a file.
+    var CORRECTIONS_ENDPOINT = "";
+
     var fileInput = document.getElementById("file");
     var drop      = document.getElementById("drop");
     var preview   = document.getElementById("preview");
@@ -153,8 +175,13 @@
     var out       = document.getElementById("out");
     var copyBtn   = document.getElementById("copy");
     var copied    = document.getElementById("copied");
+    var consent      = document.getElementById("consent");
+    var contributeBtn = document.getElementById("contribute");
+    var downloadBtn  = document.getElementById("download");
+    var contribStatus = document.getElementById("contribStatus");
 
     var currentFile = null;
+    var rawText = "";   // model output before the user's edits
 
     function setStatus(msg) { statusEl.textContent = msg || ""; }
     function setProgress(p) {
@@ -209,6 +236,8 @@
       try {
         var result = await Tesseract.recognize(currentFile, lang, opts);
         out.value = (result.data.text || "").trim();
+        rawText = out.value;
+        refreshContribute();
         setStatus(out.value ? "Done. Review and correct the text below." : "No text detected — try a clearer or higher-contrast image.");
       } catch (err) {
         console.error(err);
@@ -231,6 +260,83 @@
         document.execCommand("copy");
       }
     });
+
+    // --- Contribution (opt-in) -------------------------------------------
+    function refreshContribute() {
+      var ready = !!currentFile && !!out.value.trim();
+      downloadBtn.disabled = !ready;
+      contributeBtn.disabled = !(ready && consent.checked);
+    }
+    consent.addEventListener("change", refreshContribute);
+    out.addEventListener("input", refreshContribute);
+
+    function fileToDataURL(file) {
+      return new Promise(function (resolve, reject) {
+        var r = new FileReader();
+        r.onload = function () { resolve(r.result); };
+        r.onerror = reject;
+        r.readAsDataURL(file);
+      });
+    }
+
+    function buildPayload(dataURL) {
+      return {
+        image: dataURL,
+        rawText: rawText,
+        correctedText: out.value.trim(),
+        model: langSel.value,
+        sourceFilename: currentFile ? currentFile.name : null,
+        consent: true
+      };
+    }
+
+    contributeBtn.addEventListener("click", async function () {
+      if (!currentFile || !out.value.trim() || !consent.checked) return;
+      contribStatus.textContent = "";
+      var dataURL = await fileToDataURL(currentFile);
+
+      if (!CORRECTIONS_ENDPOINT) {   // no Worker yet → download instead
+        downloadJSON(buildPayload(dataURL));
+        contribStatus.textContent = "No upload endpoint configured — saved your contribution as a file you can send in instead.";
+        return;
+      }
+      contributeBtn.disabled = true;
+      contribStatus.textContent = "Sending…";
+      try {
+        var res = await fetch(CORRECTIONS_ENDPOINT, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(buildPayload(dataURL))
+        });
+        var data = await res.json().catch(function () { return {}; });
+        if (res.ok && data.ok) {
+          contribStatus.textContent = "Thank you — your correction was contributed.";
+          consent.checked = false;
+        } else {
+          contribStatus.textContent = "Could not send: " + (data.error || res.status) + ".";
+        }
+      } catch (e) {
+        contribStatus.textContent = "Could not send (network error). You can use “Download” and send it in instead.";
+      } finally {
+        refreshContribute();
+      }
+    });
+
+    downloadBtn.addEventListener("click", async function () {
+      if (!currentFile || !out.value.trim()) return;
+      downloadJSON(buildPayload(await fileToDataURL(currentFile)));
+      contribStatus.textContent = "Saved your contribution as a JSON file.";
+    });
+
+    function downloadJSON(payload) {
+      var name = (currentFile && currentFile.name ? currentFile.name.replace(/\.[^.]+$/, "") : "page");
+      var blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url; a.download = name + ".lsd-correction.json";
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    }
   })();
   </script>
 </body>
