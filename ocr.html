@@ -85,7 +85,7 @@
       <div class="ocr-grid">
         <div>
           <label class="drop" id="drop">
-            <input type="file" id="file" accept="image/*">
+            <input type="file" id="file" accept="image/*,application/pdf">
             <p><strong>Drop an image here</strong> or click to choose.</p>
             <p style="font-size:0.85rem;margin:0;">PNG, JPG, or a photo of a page.</p>
           </label>
@@ -159,6 +159,7 @@
   </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
   <script>
   (function () {
     "use strict";
@@ -189,6 +190,9 @@
 
     var currentFile = null;
     var rawText = "";   // model output before the user's edits
+    var pdfPages = null;  // array of rendered page dataURLs when a PDF is loaded
+    if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc =
+      "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
 
     function setStatus(msg) { statusEl.textContent = msg || ""; }
     function setProgress(p) {
@@ -196,20 +200,50 @@
       if (p != null) bar.style.width = Math.round(p * 100) + "%";
     }
 
-    function showImage(file) {
-      currentFile = file;
-      var url = URL.createObjectURL(file);
+    function isPdf(file) {
+      return file && (file.type === "application/pdf" || /\.pdf$/i.test(file.name || ""));
+    }
+
+    async function renderPdfPages(file) {
+      var data = new Uint8Array(await file.arrayBuffer());
+      var pdf = await pdfjsLib.getDocument({ data: data }).promise;
+      var pages = [];
+      for (var i = 1; i <= pdf.numPages; i++) {
+        var page = await pdf.getPage(i);
+        var vp = page.getViewport({ scale: 2 });
+        var c = document.createElement("canvas");
+        c.width = vp.width; c.height = vp.height;
+        await page.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise;
+        pages.push(c.toDataURL("image/png"));
+        setStatus("Rendering PDF… page " + i + "/" + pdf.numPages);
+      }
+      return pages;
+    }
+
+    async function showFile(file) {
+      currentFile = file; pdfPages = null;
       preview.innerHTML = "";
-      var img = new Image();
-      img.onload = function () { URL.revokeObjectURL(url); };
-      img.src = url;
-      preview.appendChild(img);
+      runBtn.disabled = true;
+      if (isPdf(file)) {
+        if (!window.pdfjsLib) { setStatus("PDF support failed to load — try an image."); return; }
+        setStatus("Rendering PDF…");
+        try { pdfPages = await renderPdfPages(file); }
+        catch (e) { setStatus("Couldn't read PDF: " + (e && e.message ? e.message : e)); return; }
+        var pimg = new Image(); pimg.src = pdfPages[0]; preview.appendChild(pimg);
+        setStatus(pdfPages.length + " page" + (pdfPages.length > 1 ? "s" : "") + " ready.");
+      } else {
+        var url = URL.createObjectURL(file);
+        var img = new Image();
+        img.onload = function () { URL.revokeObjectURL(url); };
+        img.src = url;
+        preview.appendChild(img);
+        setStatus("");
+      }
       runBtn.disabled = false;
-      setStatus("");
     }
 
     fileInput.addEventListener("change", function (e) {
-      if (e.target.files && e.target.files[0]) showImage(e.target.files[0]);
+      if (e.target.files && e.target.files[0]) showFile(e.target.files[0]);
     });
 
     ["dragenter", "dragover"].forEach(function (ev) {
@@ -220,7 +254,7 @@
     });
     drop.addEventListener("drop", function (e) {
       var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-      if (f && f.type.indexOf("image/") === 0) showImage(f);
+      if (f && (f.type.indexOf("image/") === 0 || isPdf(f))) showFile(f);
     });
 
     runBtn.addEventListener("click", async function () {
@@ -241,8 +275,18 @@
       if (lang === "fatemi") opts.langPath = CUSTOM_LANG_PATH;
 
       try {
-        var result = await Tesseract.recognize(currentFile, lang, opts);
-        out.value = (result.data.text || "").trim();
+        if (pdfPages) {
+          var texts = [];
+          for (var i = 0; i < pdfPages.length; i++) {
+            setStatus("Recognising page " + (i + 1) + "/" + pdfPages.length + "…");
+            var r = await Tesseract.recognize(pdfPages[i], lang, opts);
+            texts.push((r.data.text || "").trim());
+          }
+          out.value = texts.join("\n\n").trim();
+        } else {
+          var result = await Tesseract.recognize(currentFile, lang, opts);
+          out.value = (result.data.text || "").trim();
+        }
         rawText = out.value;
         refreshContribute();
         setStatus(out.value ? "Done. Review and correct the text below." : "No text detected — try a clearer or higher-contrast image.");
@@ -286,6 +330,12 @@
       });
     }
 
+    // For contributions: a PDF can't be sent as the training image, so use the
+    // first rendered page; otherwise the uploaded image itself.
+    async function currentImageDataURL() {
+      return pdfPages ? pdfPages[0] : await fileToDataURL(currentFile);
+    }
+
     function buildPayload(dataURL) {
       return {
         image: dataURL,
@@ -300,7 +350,7 @@
     contributeBtn.addEventListener("click", async function () {
       if (!currentFile || !out.value.trim() || !consent.checked) return;
       contribStatus.textContent = "";
-      var dataURL = await fileToDataURL(currentFile);
+      var dataURL = await currentImageDataURL();
 
       if (!CORRECTIONS_ENDPOINT) {   // no Worker yet → download instead
         downloadJSON(buildPayload(dataURL));
@@ -331,7 +381,7 @@
 
     downloadBtn.addEventListener("click", async function () {
       if (!currentFile || !out.value.trim()) return;
-      downloadJSON(buildPayload(await fileToDataURL(currentFile)));
+      downloadJSON(buildPayload(await currentImageDataURL()));
       contribStatus.textContent = "Saved your contribution as a JSON file.";
     });
 
