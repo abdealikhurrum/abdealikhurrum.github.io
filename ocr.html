@@ -52,6 +52,9 @@
     textarea#out:focus { outline: none; border-color: var(--accent); }
     .copied { color: var(--accent); font-size: 0.85rem; opacity: 0; transition: opacity .2s; }
     .copied.show { opacity: 1; }
+    .consent { display: flex; gap: 10px; align-items: flex-start; margin: 12px 0;
+      font-size: 0.95rem; color: var(--ink); cursor: pointer; }
+    .consent input { margin-top: 4px; flex: none; }
   </style>
 </head>
 <body>
@@ -75,14 +78,14 @@
       </div>
 
       <section>
-        <p>Upload a scan or photo of a Lisān ud-Daʿwat page — typically set in FatemiMaqala or Kanz al-Marjaan — and this tool recognises the text and drops it into an editable box rendered in FatemiMaqala. Everything runs locally in your browser; nothing is uploaded to a server.</p>
-        <p class="note">Baseline model: this demo uses Tesseract's stock Arabic model, which doesn't know the extended Urdu/Persian letters Lisān ud-Daʿwat uses and tends to drop the iʿrāb (vowel marks). Getting the base letters right is the priority; vocalization is a nice-to-have in Lisān ud-Daʿwat, captured when it's present. It is wired so a custom <code>fatemi.traineddata</code> — trained on text rendered in these exact fonts, voweled and plain — can be dropped in to replace it. Treat the output as a draft to correct, not a finished transcription.</p>
+        <p>Upload a scan or photo of a Lisān ud-Daʿwat page — typically set in FatemiMaqala or Kanz al-Marjaan — and this tool recognises the text and drops it into an editable box rendered in FatemiMaqala. Recognition runs entirely in your browser; the image isn't uploaded for OCR. (You can separately, and only if you opt in, contribute a correction to help train the model — see below.)</p>
+        <p class="note">Default model: a custom recogniser trained on Lisān ud-Daʿwat text rendered in FatemiMaqala and Kanz al-Marjaan (voweled and plain) plus real legacy pages — it reads the extended Urdu/Persian letters stock Arabic OCR misses and captures the iʿrāb when present. Getting the base letters right is the priority; vocalization is a nice-to-have, captured when it's there. You can also drop in a PDF (each page is rendered and read). Treat the output as a draft to correct, not a finished transcription — and use Export .docx to keep working in Word.</p>
       </section>
 
       <div class="ocr-grid">
         <div>
           <label class="drop" id="drop">
-            <input type="file" id="file" accept="image/*">
+            <input type="file" id="file" accept="image/*,application/pdf">
             <p><strong>Drop an image here</strong> or click to choose.</p>
             <p style="font-size:0.85rem;margin:0;">PNG, JPG, or a photo of a page.</p>
           </label>
@@ -95,9 +98,9 @@
       <div class="controls">
         <label for="lang">Model:</label>
         <select id="lang">
+          <option value="fatemi" selected>FatemiMaqala + Kanz al-Marjaan (trained)</option>
           <option value="ara">Arabic (stock baseline)</option>
           <option value="ara+fas+urd">Arabic + Persian + Urdu (stock)</option>
-          <option value="fatemi">Custom: FatemiMaqala (if installed)</option>
         </select>
         <button class="btn" id="run" disabled>Recognise text</button>
       </div>
@@ -108,10 +111,31 @@
       <section>
         <div class="result-head">
           <h2>Recognised text</h2>
-          <button class="btn secondary" id="copy" type="button">Copy</button>
+          <div class="btn-row">
+            <button class="btn secondary" id="exportDocx" type="button">Export .docx</button>
+            <button class="btn secondary" id="copy" type="button">Copy</button>
+          </div>
         </div>
+        <label class="consent" style="margin:6px 0">
+          <input type="checkbox" id="legacyDP">
+          <span>Export in double-press legacy form (e.g. <span dir="rtl">چھے→ ؛</span>, <span dir="rtl">ٹ→ضض</span>) for older keyboards.</span>
+        </label>
         <span class="copied" id="copied">Copied ✓</span>
         <textarea id="out" dir="rtl" placeholder="Recognised text appears here. Edit freely — your corrections are the most valuable training data for a future custom model."></textarea>
+      </section>
+
+      <section id="contribute-box">
+        <h2>Help improve the model</h2>
+        <p class="note">Optional and off by default. If you turn this on, the image you uploaded and your corrected text are sent to an open Lisān ud-Daʿwat OCR training set, so the recogniser improves over time. Please don't contribute anything private or sensitive. See the <a href="privacy.html">privacy policy</a>.</p>
+        <label class="consent">
+          <input type="checkbox" id="consent">
+          <span>I agree to contribute this image and my corrected text to the open Lisān ud-Daʿwat OCR training set.</span>
+        </label>
+        <div class="btn-row">
+          <button class="btn" id="contribute" type="button" disabled>Contribute correction</button>
+          <button class="btn secondary" id="download" type="button" disabled>Download my contribution</button>
+        </div>
+        <div class="status" id="contribStatus"></div>
       </section>
 
       <section>
@@ -119,7 +143,8 @@
         <ul>
           <li><strong>Now:</strong> in-browser recognition via Tesseract.js (WASM), no backend.</li>
           <li><strong>Next:</strong> a custom recognizer trained on synthetic lines — Unicode Lisān ud-Daʿwat text rendered in FatemiMaqala and Kanz al-Marjaan with scan-like augmentation, in both voweled and plain forms — to read the extended letters stock Arabic OCR misses and capture the iʿrāb when it's present.</li>
-          <li><strong>Then:</strong> page layout detection for multi-line scans, and a correction loop that turns your edits into real-world training data.</li>
+          <li><strong>Now (opt-in):</strong> a correction loop — if you choose to contribute, your edits become real-world training data that improves the model over time.</li>
+          <li><strong>Then:</strong> page layout detection for multi-line scans.</li>
         </ul>
       </section>
 
@@ -134,6 +159,7 @@
   </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
   <script>
   (function () {
     "use strict";
@@ -141,6 +167,10 @@
     // Where to look for a custom-trained model. Drop fatemi.traineddata.gz into
     // assets/tessdata/ and the "Custom: FatemiMaqala" option will use it.
     var CUSTOM_LANG_PATH = "assets/tessdata/";
+
+    // Deployed corrections Worker URL (see corrections-worker/README.md).
+    // Leave empty to fall back to downloading the contribution as a file.
+    var CORRECTIONS_ENDPOINT = "";
 
     var fileInput = document.getElementById("file");
     var drop      = document.getElementById("drop");
@@ -153,8 +183,16 @@
     var out       = document.getElementById("out");
     var copyBtn   = document.getElementById("copy");
     var copied    = document.getElementById("copied");
+    var consent      = document.getElementById("consent");
+    var contributeBtn = document.getElementById("contribute");
+    var downloadBtn  = document.getElementById("download");
+    var contribStatus = document.getElementById("contribStatus");
 
     var currentFile = null;
+    var rawText = "";   // model output before the user's edits
+    var pdfPages = null;  // array of rendered page dataURLs when a PDF is loaded
+    if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc =
+      "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
 
     function setStatus(msg) { statusEl.textContent = msg || ""; }
     function setProgress(p) {
@@ -162,20 +200,50 @@
       if (p != null) bar.style.width = Math.round(p * 100) + "%";
     }
 
-    function showImage(file) {
-      currentFile = file;
-      var url = URL.createObjectURL(file);
+    function isPdf(file) {
+      return file && (file.type === "application/pdf" || /\.pdf$/i.test(file.name || ""));
+    }
+
+    async function renderPdfPages(file) {
+      var data = new Uint8Array(await file.arrayBuffer());
+      var pdf = await pdfjsLib.getDocument({ data: data }).promise;
+      var pages = [];
+      for (var i = 1; i <= pdf.numPages; i++) {
+        var page = await pdf.getPage(i);
+        var vp = page.getViewport({ scale: 2 });
+        var c = document.createElement("canvas");
+        c.width = vp.width; c.height = vp.height;
+        await page.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise;
+        pages.push(c.toDataURL("image/png"));
+        setStatus("Rendering PDF… page " + i + "/" + pdf.numPages);
+      }
+      return pages;
+    }
+
+    async function showFile(file) {
+      currentFile = file; pdfPages = null;
       preview.innerHTML = "";
-      var img = new Image();
-      img.onload = function () { URL.revokeObjectURL(url); };
-      img.src = url;
-      preview.appendChild(img);
+      runBtn.disabled = true;
+      if (isPdf(file)) {
+        if (!window.pdfjsLib) { setStatus("PDF support failed to load — try an image."); return; }
+        setStatus("Rendering PDF…");
+        try { pdfPages = await renderPdfPages(file); }
+        catch (e) { setStatus("Couldn't read PDF: " + (e && e.message ? e.message : e)); return; }
+        var pimg = new Image(); pimg.src = pdfPages[0]; preview.appendChild(pimg);
+        setStatus(pdfPages.length + " page" + (pdfPages.length > 1 ? "s" : "") + " ready.");
+      } else {
+        var url = URL.createObjectURL(file);
+        var img = new Image();
+        img.onload = function () { URL.revokeObjectURL(url); };
+        img.src = url;
+        preview.appendChild(img);
+        setStatus("");
+      }
       runBtn.disabled = false;
-      setStatus("");
     }
 
     fileInput.addEventListener("change", function (e) {
-      if (e.target.files && e.target.files[0]) showImage(e.target.files[0]);
+      if (e.target.files && e.target.files[0]) showFile(e.target.files[0]);
     });
 
     ["dragenter", "dragover"].forEach(function (ev) {
@@ -186,7 +254,7 @@
     });
     drop.addEventListener("drop", function (e) {
       var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-      if (f && f.type.indexOf("image/") === 0) showImage(f);
+      if (f && (f.type.indexOf("image/") === 0 || isPdf(f))) showFile(f);
     });
 
     runBtn.addEventListener("click", async function () {
@@ -207,8 +275,20 @@
       if (lang === "fatemi") opts.langPath = CUSTOM_LANG_PATH;
 
       try {
-        var result = await Tesseract.recognize(currentFile, lang, opts);
-        out.value = (result.data.text || "").trim();
+        if (pdfPages) {
+          var texts = [];
+          for (var i = 0; i < pdfPages.length; i++) {
+            setStatus("Recognising page " + (i + 1) + "/" + pdfPages.length + "…");
+            var r = await Tesseract.recognize(pdfPages[i], lang, opts);
+            texts.push((r.data.text || "").trim());
+          }
+          out.value = texts.join("\n\n").trim();
+        } else {
+          var result = await Tesseract.recognize(currentFile, lang, opts);
+          out.value = (result.data.text || "").trim();
+        }
+        rawText = out.value;
+        refreshContribute();
         setStatus(out.value ? "Done. Review and correct the text below." : "No text detected — try a clearer or higher-contrast image.");
       } catch (err) {
         console.error(err);
@@ -230,6 +310,163 @@
         out.select();
         document.execCommand("copy");
       }
+    });
+
+    // --- Contribution (opt-in) -------------------------------------------
+    function refreshContribute() {
+      var ready = !!currentFile && !!out.value.trim();
+      downloadBtn.disabled = !ready;
+      contributeBtn.disabled = !(ready && consent.checked);
+    }
+    consent.addEventListener("change", refreshContribute);
+    out.addEventListener("input", refreshContribute);
+
+    function fileToDataURL(file) {
+      return new Promise(function (resolve, reject) {
+        var r = new FileReader();
+        r.onload = function () { resolve(r.result); };
+        r.onerror = reject;
+        r.readAsDataURL(file);
+      });
+    }
+
+    // For contributions: a PDF can't be sent as the training image, so use the
+    // first rendered page; otherwise the uploaded image itself.
+    async function currentImageDataURL() {
+      return pdfPages ? pdfPages[0] : await fileToDataURL(currentFile);
+    }
+
+    function buildPayload(dataURL) {
+      return {
+        image: dataURL,
+        rawText: rawText,
+        correctedText: out.value.trim(),
+        model: langSel.value,
+        sourceFilename: currentFile ? currentFile.name : null,
+        consent: true
+      };
+    }
+
+    contributeBtn.addEventListener("click", async function () {
+      if (!currentFile || !out.value.trim() || !consent.checked) return;
+      contribStatus.textContent = "";
+      var dataURL = await currentImageDataURL();
+
+      if (!CORRECTIONS_ENDPOINT) {   // no Worker yet → download instead
+        downloadJSON(buildPayload(dataURL));
+        contribStatus.textContent = "No upload endpoint configured — saved your contribution as a file you can send in instead.";
+        return;
+      }
+      contributeBtn.disabled = true;
+      contribStatus.textContent = "Sending…";
+      try {
+        var res = await fetch(CORRECTIONS_ENDPOINT, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(buildPayload(dataURL))
+        });
+        var data = await res.json().catch(function () { return {}; });
+        if (res.ok && data.ok) {
+          contribStatus.textContent = "Thank you — your correction was contributed.";
+          consent.checked = false;
+        } else {
+          contribStatus.textContent = "Could not send: " + (data.error || res.status) + ".";
+        }
+      } catch (e) {
+        contribStatus.textContent = "Could not send (network error). You can use “Download” and send it in instead.";
+      } finally {
+        refreshContribute();
+      }
+    });
+
+    downloadBtn.addEventListener("click", async function () {
+      if (!currentFile || !out.value.trim()) return;
+      downloadJSON(buildPayload(await currentImageDataURL()));
+      contribStatus.textContent = "Saved your contribution as a JSON file.";
+    });
+
+    function downloadJSON(payload) {
+      var name = (currentFile && currentFile.name ? currentFile.name.replace(/\.[^.]+$/, "") : "page");
+      var blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url; a.download = name + ".lsd-correction.json";
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    }
+
+    // --- Export to .docx (optionally as double-press legacy) --------------
+    var legacyDP = document.getElementById("legacyDP");
+    var exportDocxBtn = document.getElementById("exportDocx");
+
+    // Unicode -> LSD double-press, ported from double_press_convert.convert_text_reverse.
+    // Reverts secondary letters to their repeated-key sequences (only at word
+    // ends, where it's unambiguous) for people still typing on legacy keyboards.
+    function unicodeToDoublePress(text) {
+      var AR = "ء-ۿ";
+      // isolated چھے -> space + Arabic semicolon
+      text = text.replace(new RegExp("(?<![" + AR + "])چھے(?![" + AR + "])", "g"), " ؛");
+      // word-final yeh-barree -> سس
+      text = text.replace(new RegExp("ے(?=[^" + AR + "]|$)", "g"), "سس");
+      // word-final singles: ڑ -> ر+ً , ھ -> د+ً
+      text = text.replace(new RegExp("[ڑھ](?=[^" + AR + "]|$)", "g"),
+        function (m) { return m === "ڑ" ? "رٌ" : "دٌ"; });
+      // word-final doubles: secondary letter -> repeated primary key
+      var dmap = { "ٹ": "ضض", "پ": "ثث", "چ": "حح",
+                   "گ": "كك", "ں": "طط", "ہ": "ظظ" };
+      text = text.replace(new RegExp("[ٹپچگںہ](?=[^" + AR + "]|$)", "g"),
+        function (m) { return dmap[m]; });
+      return text;
+    }
+
+    // Minimal dependency-free .docx writer (a STORED zip of the OOXML parts).
+    var _crc;
+    function crc32(b) {
+      if (!_crc) { _crc = []; for (var n = 0; n < 256; n++) { var c = n; for (var k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1); _crc[n] = c >>> 0; } }
+      var crc = 0xFFFFFFFF;
+      for (var i = 0; i < b.length; i++) crc = (crc >>> 8) ^ _crc[(crc ^ b[i]) & 0xFF];
+      return (crc ^ 0xFFFFFFFF) >>> 0;
+    }
+    function zipStore(files) {
+      var enc = new TextEncoder(), parts = [], central = [], offset = 0;
+      function u16(n) { return [n & 0xFF, (n >> 8) & 0xFF]; }
+      function u32(n) { return [n & 0xFF, (n >> 8) & 0xFF, (n >> 16) & 0xFF, (n >>> 24) & 0xFF]; }
+      files.forEach(function (f) {
+        var nm = enc.encode(f.name), crc = crc32(f.bytes), sz = f.bytes.length;
+        var local = [].concat(u32(0x04034b50), u16(20), u16(0x0800), u16(0), u16(0), u16(0), u32(crc), u32(sz), u32(sz), u16(nm.length), u16(0));
+        parts.push(new Uint8Array(local), nm, f.bytes);
+        central.push(new Uint8Array([].concat(u32(0x02014b50), u16(20), u16(20), u16(0x0800), u16(0), u16(0), u16(0), u32(crc), u32(sz), u32(sz), u16(nm.length), u16(0), u16(0), u16(0), u16(0), u32(0), u32(offset))), nm);
+        offset += local.length + nm.length + sz;
+      });
+      var cdSize = central.reduce(function (a, c) { return a + c.length; }, 0);
+      var eocd = new Uint8Array([].concat(u32(0x06054b50), u16(0), u16(0), u16(files.length), u16(files.length), u32(cdSize), u32(offset), u16(0)));
+      return new Blob(parts.concat(central, [eocd]), { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+    }
+    function buildDocx(text) {
+      function esc(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+      var paras = text.split(/\r?\n/).map(function (ln) {
+        return '<w:p><w:pPr><w:bidi/></w:pPr><w:r><w:rPr><w:rtl/><w:rFonts w:cs="FatemiMaqala"/><w:sz w:val="32"/><w:szCs w:val="32"/></w:rPr><w:t xml:space="preserve">' + esc(ln) + '</w:t></w:r></w:p>';
+      }).join("");
+      var doc = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>' + paras + '<w:sectPr><w:bidi/></w:sectPr></w:body></w:document>';
+      var ct = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>';
+      var rels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>';
+      var enc = new TextEncoder();
+      return zipStore([
+        { name: "[Content_Types].xml", bytes: enc.encode(ct) },
+        { name: "_rels/.rels", bytes: enc.encode(rels) },
+        { name: "word/document.xml", bytes: enc.encode(doc) }
+      ]);
+    }
+    exportDocxBtn.addEventListener("click", function () {
+      var text = out.value;
+      if (!text.trim()) return;
+      if (legacyDP.checked) text = unicodeToDoublePress(text);
+      var base = (currentFile && currentFile.name ? currentFile.name.replace(/\.[^.]+$/, "") : "recognised");
+      var url = URL.createObjectURL(buildDocx(text));
+      var a = document.createElement("a");
+      a.href = url; a.download = base + (legacyDP.checked ? "-doublepress" : "") + ".docx";
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
     });
   })();
   </script>

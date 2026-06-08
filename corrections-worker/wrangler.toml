@@ -1,0 +1,19 @@
+name = "lsd-ocr-corrections"
+main = "worker.js"
+compatibility_date = "2024-11-01"
+
+# Public config. The GitHub token is NOT here — set it as a secret:
+#   wrangler secret put GH_TOKEN
+[vars]
+GH_OWNER = "abdealikhurrum"
+GH_REPO = "lsd-ocr-corrections"   # create this repo (can be private)
+GH_BRANCH = "main"
+ALLOWED_ORIGIN = "https://abdealikhurrum.github.io"
+MAX_IMAGE_KB = "4096"
+RATE_PER_HOUR = "20"
+
+# Optional rate limiting. Create a KV namespace and uncomment to enable:
+#   wrangler kv namespace create RATELIMIT
+# [[kv_namespaces]]
+# binding = "RATELIMIT"
+# id = "<the id wrangler prints>"
