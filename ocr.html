@@ -78,7 +78,7 @@
       </div>
 
       <section>
-        <p>Upload a scan or photo of a Lisān ud-Daʿwat page — typically set in FatemiMaqala or Kanz al-Marjaan — and this tool recognises the text and drops it into an editable box rendered in FatemiMaqala. Recognition runs entirely in your browser; the image isn't uploaded for OCR. (You can separately, and only if you opt in, contribute a correction to help train the model — see below.)</p>
+        <p>Upload a scan, photo, or <strong>PDF</strong> of a Lisān ud-Daʿwat page — typically set in FatemiMaqala or Kanz al-Marjaan — and this tool recognises the text and drops it into an editable box rendered in FatemiMaqala. Multi-page PDFs are read page by page. Recognition runs entirely in your browser; the image isn't uploaded for OCR. (You can separately, and only if you opt in, contribute a correction to help train the model — see below.)</p>
         <p class="note">Default model: a custom recogniser trained on Lisān ud-Daʿwat text rendered in FatemiMaqala and Kanz al-Marjaan (voweled and plain) plus real legacy pages — it reads the extended Urdu/Persian letters stock Arabic OCR misses and captures the iʿrāb when present. Getting the base letters right is the priority; vocalization is a nice-to-have, captured when it's there. You can also drop in a PDF (each page is rendered and read). Treat the output as a draft to correct, not a finished transcription — and use Export .docx to keep working in Word.</p>
       </section>
 
@@ -86,12 +86,12 @@
         <div>
           <label class="drop" id="drop">
             <input type="file" id="file" accept="image/*,application/pdf">
-            <p><strong>Drop an image here</strong> or click to choose.</p>
-            <p style="font-size:0.85rem;margin:0;">PNG, JPG, or a photo of a page.</p>
+            <p><strong>Drop an image or PDF here</strong> or click to choose.</p>
+            <p style="font-size:0.85rem;margin:0;">PNG, JPG, or PDF — a scan, a photo, or a multi-page document.</p>
           </label>
         </div>
         <div class="preview" id="preview">
-          <span class="empty">Image preview will appear here.</span>
+          <span class="empty">Image or first PDF page will appear here.</span>
         </div>
       </div>
 
