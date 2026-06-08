@@ -204,13 +204,38 @@
       return file && (file.type === "application/pdf" || /\.pdf$/i.test(file.name || ""));
     }
 
+    // OCR accuracy doesn't improve past ~2500px; bigger inputs just run slower
+    // (and can OOM low-end devices). Cap render/upload resolution here.
+    var MAX_OCR_DIM = 2500;
+    var SEC_PER_PAGE = 2;   // rough in-browser OCR time/page on a typical PC
+
+    function fitForOcr(source, w, h) {
+      var scale = Math.min(1, MAX_OCR_DIM / Math.max(w, h));
+      if (scale >= 1 && source.tagName === "CANVAS") return source;
+      var c = document.createElement("canvas");
+      c.width = Math.max(1, Math.round(w * scale));
+      c.height = Math.max(1, Math.round(h * scale));
+      c.getContext("2d").drawImage(source, 0, 0, c.width, c.height);
+      return c;
+    }
+    function loadImageEl(file) {
+      return new Promise(function (res, rej) {
+        var img = new Image();
+        img.onload = function () { res(img); };
+        img.onerror = function () { rej(new Error("could not load image")); };
+        img.src = URL.createObjectURL(file);
+      });
+    }
+
     async function renderPdfPages(file) {
       var data = new Uint8Array(await file.arrayBuffer());
       var pdf = await pdfjsLib.getDocument({ data: data }).promise;
       var pages = [];
       for (var i = 1; i <= pdf.numPages; i++) {
         var page = await pdf.getPage(i);
-        var vp = page.getViewport({ scale: 2 });
+        var base = page.getViewport({ scale: 1 });
+        var scale = Math.min(2, MAX_OCR_DIM / base.width);  // cap width at MAX_OCR_DIM
+        var vp = page.getViewport({ scale: scale });
         var c = document.createElement("canvas");
         c.width = vp.width; c.height = vp.height;
         await page.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise;
@@ -230,7 +255,11 @@
         try { pdfPages = await renderPdfPages(file); }
         catch (e) { setStatus("Couldn't read PDF: " + (e && e.message ? e.message : e)); return; }
         var pimg = new Image(); pimg.src = pdfPages[0]; preview.appendChild(pimg);
-        setStatus(pdfPages.length + " page" + (pdfPages.length > 1 ? "s" : "") + " ready.");
+        var n = pdfPages.length, secs = n * SEC_PER_PAGE;
+        var est = secs < 90 ? "~" + secs + "s" : "~" + Math.round(secs / 60) + " min";
+        setStatus(n + " page" + (n > 1 ? "s" : "") + " ready · recognition runs in your browser ("
+          + est + " at a few seconds/page)."
+          + (n > 40 ? " A PDF this large can take a while — you could split it or use fewer pages." : ""));
       } else {
         var url = URL.createObjectURL(file);
         var img = new Image();
@@ -284,7 +313,9 @@
           }
           out.value = texts.join("\n\n").trim();
         } else {
-          var result = await Tesseract.recognize(currentFile, lang, opts);
+          var imgEl = await loadImageEl(currentFile);
+          var src = fitForOcr(imgEl, imgEl.naturalWidth || imgEl.width, imgEl.naturalHeight || imgEl.height);
+          var result = await Tesseract.recognize(src, lang, opts);
           out.value = (result.data.text || "").trim();
         }
         rawText = out.value;
