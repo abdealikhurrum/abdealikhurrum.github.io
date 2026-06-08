@@ -79,7 +79,7 @@
 
       <section>
         <p>Upload a scan or photo of a Lisān ud-Daʿwat page — typically set in FatemiMaqala or Kanz al-Marjaan — and this tool recognises the text and drops it into an editable box rendered in FatemiMaqala. Recognition runs entirely in your browser; the image isn't uploaded for OCR. (You can separately, and only if you opt in, contribute a correction to help train the model — see below.)</p>
-        <p class="note">Baseline model: this demo uses Tesseract's stock Arabic model, which doesn't know the extended Urdu/Persian letters Lisān ud-Daʿwat uses and tends to drop the iʿrāb (vowel marks). Getting the base letters right is the priority; vocalization is a nice-to-have in Lisān ud-Daʿwat, captured when it's present. It is wired so a custom <code>fatemi.traineddata</code> — trained on text rendered in these exact fonts, voweled and plain — can be dropped in to replace it. Treat the output as a draft to correct, not a finished transcription.</p>
+        <p class="note">Default model: a custom recogniser trained on Lisān ud-Daʿwat text rendered in FatemiMaqala and Kanz al-Marjaan (voweled and plain) plus real legacy pages — it reads the extended Urdu/Persian letters stock Arabic OCR misses and captures the iʿrāb when present. Getting the base letters right is the priority; vocalization is a nice-to-have, captured when it's there. You can also drop in a PDF (each page is rendered and read). Treat the output as a draft to correct, not a finished transcription — and use Export .docx to keep working in Word.</p>
       </section>
 
       <div class="ocr-grid">
@@ -98,9 +98,9 @@
       <div class="controls">
         <label for="lang">Model:</label>
         <select id="lang">
+          <option value="fatemi" selected>FatemiMaqala + Kanz al-Marjaan (trained)</option>
           <option value="ara">Arabic (stock baseline)</option>
           <option value="ara+fas+urd">Arabic + Persian + Urdu (stock)</option>
-          <option value="fatemi">Custom: FatemiMaqala (if installed)</option>
         </select>
         <button class="btn" id="run" disabled>Recognise text</button>
       </div>
