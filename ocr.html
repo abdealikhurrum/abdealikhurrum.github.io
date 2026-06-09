@@ -103,6 +103,7 @@
           <option value="ara+fas+urd">Arabic + Persian + Urdu (stock)</option>
         </select>
         <button class="btn" id="run" disabled>Recognise text</button>
+        <button class="btn secondary" id="freetype" type="button" style="display:none">High-accuracy legacy decode</button>
       </div>
 
       <div class="progress" id="progress"><span id="bar"></span></div>
@@ -172,6 +173,11 @@
     // Leave empty to fall back to downloading the contribution as a file.
     var CORRECTIONS_ENDPOINT = "";
 
+    // Deployed FreeType glyph-matcher Worker URL (see font-fatemi ocr/service/).
+    // When set, a "High-accuracy legacy decode" button appears for PDFs and
+    // POSTs them to the server-side matcher (~90%+ on legacy AlFatemi fonts).
+    var FREETYPE_ENDPOINT = "";
+
     var fileInput = document.getElementById("file");
     var drop      = document.getElementById("drop");
     var preview   = document.getElementById("preview");
@@ -187,6 +193,7 @@
     var contributeBtn = document.getElementById("contribute");
     var downloadBtn  = document.getElementById("download");
     var contribStatus = document.getElementById("contribStatus");
+    var freetypeBtn  = document.getElementById("freetype");
 
     var currentFile = null;
     var rawText = "";   // model output before the user's edits
@@ -249,6 +256,7 @@
       currentFile = file; pdfPages = null;
       preview.innerHTML = "";
       runBtn.disabled = true;
+      if (freetypeBtn) freetypeBtn.style.display = "none";
       if (isPdf(file)) {
         if (!window.pdfjsLib) { setStatus("PDF support failed to load — try an image."); return; }
         setStatus("Rendering PDF…");
@@ -260,6 +268,7 @@
         setStatus(n + " page" + (n > 1 ? "s" : "") + " ready · recognition runs in your browser ("
           + est + " at a few seconds/page)."
           + (n > 40 ? " A PDF this large can take a while — you could split it or use fewer pages." : ""));
+        if (FREETYPE_ENDPOINT) freetypeBtn.style.display = "";  // offer server-side high-accuracy decode
       } else {
         var url = URL.createObjectURL(file);
         var img = new Image();
@@ -340,6 +349,33 @@
       } catch (e) {
         out.select();
         document.execCommand("copy");
+      }
+    });
+
+    // --- High-accuracy legacy-font decode (optional server) ---------------
+    freetypeBtn.addEventListener("click", async function () {
+      if (!currentFile || !FREETYPE_ENDPOINT) return;
+      freetypeBtn.disabled = true; runBtn.disabled = true;
+      setProgress(0.3); setStatus("High-accuracy decode on the server…");
+      try {
+        var res = await fetch(FREETYPE_ENDPOINT.replace(/\/+$/, "") + "/decode", {
+          method: "POST", headers: { "Content-Type": "application/pdf" }, body: currentFile
+        });
+        var data = await res.json().catch(function () { return {}; });
+        if (res.ok && typeof data.text === "string") {
+          out.value = data.text.trim(); rawText = out.value; refreshContribute();
+          setStatus("High-accuracy decode done"
+            + (data.decoded_pages ? " (" + data.decoded_pages + " pages)" : "")
+            + ". Review and correct below.");
+        } else if (res.status === 429) {
+          setStatus("The high-accuracy service is busy (rate-limited) — wait a minute and retry.");
+        } else {
+          setStatus("High-accuracy decode failed: " + (data.error || ("HTTP " + res.status)) + ".");
+        }
+      } catch (e) {
+        setStatus("Couldn't reach the high-accuracy service: " + (e && e.message ? e.message : e));
+      } finally {
+        setProgress(null); freetypeBtn.disabled = false; runBtn.disabled = false;
       }
     });
 
