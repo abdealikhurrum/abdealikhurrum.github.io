@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Abdeali Khurrum — Projects</title>
-  <meta name="description" content="Projects by Abdeali Khurrum: ashaar.js, ashaar.js for Word, the LigaCheh keyboard, and the FatemiMaqala and AlFatemi fonts.">
+  <meta name="description" content="Projects by Abdeali Khurrum: Lisān OCR, ashaar.js, ashaar.js for Word, the LigaCheh keyboard and input methods, and the FatemiMaqala and Kanz al-Marjaan fonts.">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -31,7 +31,7 @@
         <a class="card" href="ocr.html">
           <span class="arabic">قراءة</span>
           <h3>Lisān OCR</h3>
-          <p>In-browser OCR for Lisān ud-Daʿwat pages set in FatemiMaqala or Kanz al-Marjaan — upload a scan, get editable text.</p>
+          <p>In-browser OCR for Lisān ud-Daʿwat pages set in FatemiMaqala or Kanz al-Marjaan — upload a scan or PDF, get editable text. Recognises the extended Lisān letters.</p>
         </a>
         <a class="card" href="https://abdealikhurrum.github.io/ashaar-js/">
           <h3>ashaar.js</h3>
@@ -43,22 +43,33 @@
         </a>
         <a class="card" href="keyboard.html">
           <h3>LigaCheh Keyboard</h3>
-          <p>A Lisān ud-Daʿwat keyboard for iOS, Android, Windows, and macOS.</p>
+          <p>A Lisān ud-Daʿwat keyboard for iOS, Android, Windows, and macOS — with text prediction and a built-in notepad.</p>
         </a>
         <a class="card" href="fatemimaqala.html">
           <span class="arabic">فاطمي مقالة</span>
           <h3>FatemiMaqala</h3>
           <p>A naskh-style typeface for Lisān ud-Daʿwat and Arabic-script text.</p>
         </a>
-        <a class="card" href="alfatemi.html">
-          <span class="arabic">الفاطمي</span>
-          <h3>AlFatemi</h3>
-          <p>A companion display typeface for headings and titles.</p>
+        <a class="card" href="kanz-al-marjaan.html">
+          <span class="arabic">كنز المرجان</span>
+          <h3>Kanz al-Marjaan</h3>
+          <p>An open-source Naskh typeface for fully vocalised Arabic-script text, with Lisān ud-Daʿwat support.</p>
         </a>
         <a class="card" href="https://abdealikhurrum.github.io/border-distance/">
           <h3>Border Distance</h3>
           <p>A map tool that measures driving distance between two points and how much of the route falls within each administrative unit.</p>
         </a>
+      </section>
+
+      <section class="updates">
+        <h2>Recent updates <span class="updates-date">June 2026</span></h2>
+        <ul class="update-list">
+          <li><strong>Keyboards (iOS &amp; Android)</strong> — a built-in notepad: a right-to-left WYSIWYG editor with FatemiMaqala PDF export, inline images, and kashida-justified verse blocks. Text prediction now runs on a shared engine.</li>
+          <li><strong>Input methods (Windows &amp; macOS)</strong> — the Windows IME ships as an installer with a phonetic (CRULP) layout, a Caps-Lock diacritic layer, and an end-user guide; the macOS input method adds a Roman&rarr;Lisān transliteration mode and honorific insertion styles. Both share the same prediction and transliteration engine.</li>
+          <li><strong>Lisān OCR</strong> — a new offline document OCR command-line tool (Apple-Silicon GPU support, low-resolution and phone-photo enhancement), and the in-browser model retrained for the extended Lisān letters (ے گ چ پ ڑ).</li>
+          <li><strong>FatemiMaqala</strong> — corpus-measured collision fixes for kaaf and below-the-line marks, restored honorific marks and ligatures, spanning prepended marks, and a Google Fonts submission package.</li>
+          <li><strong>Kanz al-Marjaan</strong> — curve cleanup across the glyph set, per-component mark-to-ligature positioning, and refined shadda, eraab, and Allah-ligature shaping.</li>
+        </ul>
       </section>
     </div>
   </main>

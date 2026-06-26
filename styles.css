@@ -6,8 +6,9 @@
   font-display: swap;
 }
 @font-face {
-  font-family: "AlFatemi";
-  src: url("assets/fonts/AlFatemi-Regular.ttf") format("truetype");
+  font-family: "KanzAlMarjaan";
+  src: url("assets/fonts/KanzAlMarjaan-Regular.woff2") format("woff2"),
+       url("assets/fonts/KanzAlMarjaan-Regular.ttf") format("truetype");
   font-display: swap;
 }
 
@@ -106,7 +107,7 @@ li { margin: 4px 0; }
 .specimen { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
   padding: 28px; direction: rtl; text-align: center; margin: 18px 0; }
 .specimen .fatemi { font-family: "FatemiMaqala", serif; }
-.specimen .alfatemi { font-family: "AlFatemi", serif; }
+.specimen .kanz { font-family: "KanzAlMarjaan", serif; }
 .specimen .big { font-size: clamp(2rem, 7vw, 3.4rem); line-height: 1.4; color: var(--ink); }
 
 /* Screenshots */
@@ -116,6 +117,15 @@ li { margin: 4px 0; }
 /* Note box */
 .note { background: #f3f6f5; border-left: 3px solid var(--accent); padding: 12px 16px;
   border-radius: 0 8px 8px 0; color: var(--muted); font-size: 0.95rem; }
+
+/* Recent updates */
+.updates h2 .updates-date { color: var(--muted); font-weight: 400; font-size: 0.8rem;
+  text-transform: uppercase; letter-spacing: 0.06em; margin-left: 8px; }
+.update-list { list-style: none; padding: 0; margin: 14px 0 0; }
+.update-list li { padding: 14px 0; margin: 0; border-top: 1px solid var(--line);
+  color: var(--muted); font-size: 0.95rem; }
+.update-list li:first-child { border-top: none; padding-top: 4px; }
+.update-list li strong { color: var(--ink); }
 
 /* Footer */
 .site-footer { border-top: 1px solid var(--line); color: var(--muted); font-size: 0.9rem;
