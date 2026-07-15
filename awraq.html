@@ -219,11 +219,21 @@
 
     function download(bytes, name) {
       var blob = new Blob([bytes], { type: "application/pdf" });
+      var url = URL.createObjectURL(blob);
       var a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
+      a.href = url;
       a.download = name;
+      a.rel = "noopener";
+      // Safari ignores the download filename unless the anchor is in the DOM,
+      // and loses it if the URL is revoked before the download starts.
+      document.body.appendChild(a);
       a.click();
-      URL.revokeObjectURL(a.href);
+      document.body.removeChild(a);
+      setTimeout(function () { URL.revokeObjectURL(url); }, 30000);
+    }
+
+    function sleep(ms) {
+      return new Promise(function (resolve) { setTimeout(resolve, ms); });
     }
 
     // ── Printer profiles (kept in this browser's localStorage) ─────────────
@@ -359,6 +369,7 @@
           var fronts = await ImposePdf.imposePdf(srcBytes, Object.assign({}, o, { faces: "fronts", reverse: false }));
           var backs = await ImposePdf.imposePdf(srcBytes, Object.assign({}, o, { faces: "backs" }));
           download(fronts, srcName + "-booklet-1-fronts.pdf");
+          await sleep(500);
           download(backs, srcName + "-booklet-2-backs.pdf");
           renderPlan();
           setStatus(statusEl.textContent + " Two files downloaded: print the fronts file, reinsert the stack, then print the backs file." +
@@ -405,6 +416,7 @@
         if (o.duplex === "manual") {
           download(await ImposePdf.imposePdf(source, Object.assign({}, o, { faces: "fronts", reverse: false })),
             "booklet-test-1-fronts.pdf");
+          await sleep(500);
           download(await ImposePdf.imposePdf(source, Object.assign({}, o, { faces: "backs" })),
             "booklet-test-2-backs.pdf");
         } else {
