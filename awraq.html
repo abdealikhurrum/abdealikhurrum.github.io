@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Awraq Booklet Maker — Abdeali Khurrum</title>
-  <meta name="description" content="Turn a reader-order PDF into a print-ready right-to-left booklet: single-signature saddle fold or independent 4-side quires. Runs entirely in your browser.">
+  <meta name="description" content="Turn a reader-order PDF into a print-ready right-to-left booklet: single-signature saddle fold, independent 4-side quires, or a mini-booklet from a single sheet (cut-&-staple or no-staple zine fold). Runs entirely in your browser.">
   <link rel="stylesheet" href="styles.css">
   <style>
     /* Page-local styles for the booklet tool. Shared chrome comes from styles.css. */
@@ -20,6 +20,7 @@
     .controls { display: grid; gap: 14px; margin: 18px 0; grid-template-columns: 1fr; }
     @media (min-width: 700px) { .controls { grid-template-columns: 1fr 1fr; } }
 
+    .printerbar[hidden] { display: none; }
     .printerbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
       border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface);
       padding: 12px 14px; margin: 0 0 18px; }
@@ -40,6 +41,8 @@
     .btn[disabled] { opacity: 0.5; pointer-events: none; }
     .status { font-size: 0.95rem; color: var(--muted); min-height: 1.3em; margin: 10px 0; }
     .status.warn { color: #a15c00; }
+    .zine-note { border: 1px solid var(--line); border-radius: var(--radius);
+      background: var(--surface); padding: 12px 14px; margin: 0 0 14px; }
 
     .sheetmap { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface);
       padding: 14px 16px; margin-top: 16px; display: none; }
@@ -93,6 +96,8 @@
             <select id="scheme">
               <option value="saddle" selected>Single signature — all sheets nested, folded once</option>
               <option value="quire4">4-side quires — each sheet folds on its own</option>
+              <option value="miniquire8">Mini-quire — cut into quarters &amp; staple (8 pages/sheet)</option>
+              <option value="zinefold8">Zine fold — no staples, one sheet (8 pages, single-sided)</option>
             </select>
           </div>
           <div class="field">
@@ -103,13 +108,22 @@
             </select>
           </div>
           <div class="field">
+            <label for="papersize">Paper size</label>
+            <select id="papersize">
+              <option value="a4" selected>A4</option>
+              <option value="letter">Letter</option>
+              <option value="a5">A5</option>
+              <option value="halfLetter">Half-Letter</option>
+            </select>
+          </div>
+          <div class="field" id="duplexField">
             <label for="duplex">Double-sided printing</label>
             <select id="duplex">
               <option value="auto" selected>Automatic — printer prints both sides</option>
               <option value="manual">Manual — separate fronts &amp; backs files</option>
             </select>
           </div>
-          <div class="field">
+          <div class="field" id="flipField">
             <label for="flip">Printer flip setting</label>
             <select id="flip">
               <option value="short" selected>Flip on short edge</option>
@@ -118,12 +132,22 @@
           </div>
         </div>
 
+        <p class="note zine-note" id="zineNote" hidden>
+          <strong>What's a zine fold?</strong> A zine (rhymes with “bean”) is a small, DIY, folded
+          booklet — this option turns your document into one from a single sheet of paper, with a
+          few folds and one short cut, no stapler needed. Every sheet below becomes its own separate
+          little booklet. See
+          <a href="https://www.itsalwaysautumn.com/make-8-page-mini-book-one-sheet-paper-easy-foldables-idea.html" target="_blank" rel="noopener">a step-by-step guide with photos</a>
+          if you want to see it done by hand first. Prints single-sided — the double-sided controls
+          above don't apply to this form.
+        </p>
+
         <div class="checkline" id="reverseline" hidden>
           <input type="checkbox" id="reverse">
           <label for="reverse">Backs in reverse order (use if your printer stacks pages face up / reversed)</label>
         </div>
 
-        <div class="printerbar">
+        <div class="printerbar" id="printerbar">
           <span class="lead">Printer:</span>
           <select id="printersel">
             <option value="">— not saved —</option>
@@ -133,7 +157,7 @@
           <button class="btn" id="printerdel" type="button" hidden>Delete</button>
         </div>
 
-        <p class="note">Print the result double-sided on landscape sheets, then fold. Match the duplex option to your printer’s setting — if the backs come out upside down, switch it. Everything runs in your browser; the PDF never leaves your device.</p>
+        <p class="note">Your content is scaled to fit the paper size you choose above, whatever size your source PDF happens to be. Print the result double-sided, landscape, at actual size (100%) on that paper, then fold. Match the duplex option to your printer’s setting — if the backs come out upside down, switch it. Everything runs in your browser; the PDF never leaves your device.</p>
 
         <p class="status" id="status">No file loaded.</p>
         <button class="btn" id="go" disabled>Make booklet PDF</button>
@@ -171,7 +195,7 @@
         <div class="sheetmap" id="sheetmap">
           <h2>Sheet plan</h2>
           <table>
-            <thead><tr><th>Sheet</th><th>Front (left · right)</th><th>Back (left · right)</th></tr></thead>
+            <thead><tr id="sheetheader"><th>Sheet</th><th>Front</th><th>Back</th></tr></thead>
             <tbody id="sheetrows"></tbody>
           </table>
         </div>
@@ -214,6 +238,7 @@
         flip: document.getElementById("flip").value,
         duplex: document.getElementById("duplex").value,
         reverse: document.getElementById("reverse").checked,
+        paperSize: document.getElementById("papersize").value,
       };
     }
 
@@ -274,6 +299,21 @@
         document.getElementById("duplex").value !== "manual";
     }
 
+    // Single-sided schemes (zinefold8) have no duplex/flip to configure —
+    // hide those controls and show the zine explainer instead.
+    function syncSchemeUi() {
+      var scheme = document.getElementById("scheme").value;
+      var withBack = Impose.hasBack(scheme);
+      document.getElementById("duplexField").hidden = !withBack;
+      document.getElementById("flipField").hidden = !withBack;
+      document.getElementById("printerbar").hidden = !withBack;
+      document.getElementById("zineNote").hidden = withBack;
+      if (!withBack) {
+        document.getElementById("duplex").value = "auto";
+        document.getElementById("reverseline").hidden = true;
+      }
+    }
+
     printersel.addEventListener("change", function () {
       printername.value = printersel.value;
       printerdel.hidden = !printersel.value;
@@ -299,8 +339,16 @@
       setStatus("Printer removed.");
     });
 
-    function slotLabel(n) {
+    function entryPage(e) {
+      return e && typeof e === "object" ? e.page : e;
+    }
+    function slotLabel(e) {
+      var n = entryPage(e);
       return n > pageCount ? "blank" : String(n);
+    }
+    function sideLabel(entries) {
+      if (!entries) return "— single-sided —";
+      return entries.map(slotLabel).join(" · ");
     }
 
     function renderPlan() {
@@ -310,12 +358,15 @@
       var blankNote = p.blanks.length ? " (+" + p.blanks.length + " blank to fill the fold)" : "";
       setStatus(pageCount + " pages → " + p.sheets.length + " sheet" +
         (p.sheets.length === 1 ? "" : "s") + ", " + p.paddedCount + " sides" + blankNote + ".");
+      var header = document.getElementById("sheetheader");
+      header.children[1].textContent = Impose.hasBack(o.scheme) ? "Front" : "Panels (single-sided)";
+      header.children[2].hidden = !Impose.hasBack(o.scheme);
       sheetrows.innerHTML = "";
       p.sheets.forEach(function (s, i) {
         var tr = document.createElement("tr");
-        [String(i + 1),
-         slotLabel(s.front[0]) + " · " + slotLabel(s.front[1]),
-         slotLabel(s.back[0]) + " · " + slotLabel(s.back[1])].forEach(function (text, col) {
+        var cells = [String(i + 1), sideLabel(s.front)];
+        if (Impose.hasBack(o.scheme)) cells.push(sideLabel(s.back));
+        cells.forEach(function (text, col) {
           var td = document.createElement(col === 0 ? "th" : "td");
           if (text.indexOf("blank") !== -1) td.className = "blank";
           td.textContent = text;
@@ -398,12 +449,14 @@
     });
     ["scheme", "direction", "flip", "duplex"].forEach(function (id) {
       document.getElementById(id).addEventListener("change", function () {
+        syncSchemeUi();
         syncDuplexUi();
         renderPlan();
       });
     });
     goBtn.addEventListener("click", impose);
     renderPrinters("");
+    syncSchemeUi();
     syncDuplexUi();
 
     document.getElementById("testbooklet").addEventListener("click", async function () {
@@ -430,7 +483,7 @@
 
     document.getElementById("testsheet").addEventListener("click", async function () {
       try {
-        var bytes = await ImposePdf.makeTestSheet({ pdfLib: PDFLib });
+        var bytes = await ImposePdf.makeTestSheet({ pdfLib: PDFLib, paperSize: opts().paperSize });
         var blob = new Blob([bytes], { type: "application/pdf" });
         var a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
