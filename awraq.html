@@ -149,6 +149,15 @@
           </ol>
           <button class="btn" id="testsheet" type="button">Download printer test sheet</button>
 
+          <h3>Test a full booklet — folding, sheet order, and backs-first printers</h3>
+          <p>The one-sheet test can’t catch a printer that pairs backs with the <em>wrong</em> fronts (backs-first stacking) — that needs several sheets. This downloads a 12-page test booklet using the <strong>form, direction, and duplex settings you’ve chosen above</strong>, imposed exactly like a real document:</p>
+          <ol>
+            <li>Every page says which sheet and side it must land on — if the two sides of any printed sheet show different sheet numbers, tick <strong>“Backs in reverse order”</strong> (Manual mode) and print again.</li>
+            <li>The cover page carries step-by-step folding and stacking instructions for the chosen form — nested single signature or independent quires — in the chosen direction.</li>
+            <li>If the finished booklet reads 1 to 12 in order, your settings are right: save them under the printer’s name above.</li>
+          </ol>
+          <button class="btn" id="testbooklet" type="button">Download test booklet</button>
+
           <h3>My printer can’t print double-sided</h3>
           <p>Set “Double-sided printing” above to <strong>Manual</strong> — you’ll get two files instead of one:</p>
           <ol>
@@ -385,6 +394,27 @@
     goBtn.addEventListener("click", impose);
     renderPrinters("");
     syncDuplexUi();
+
+    document.getElementById("testbooklet").addEventListener("click", async function () {
+      try {
+        var o = opts();
+        o.pdfLib = PDFLib;
+        var source = await ImposePdf.makeTestBooklet({
+          pdfLib: PDFLib, scheme: o.scheme, direction: o.direction, sheets: 3,
+        });
+        if (o.duplex === "manual") {
+          download(await ImposePdf.imposePdf(source, Object.assign({}, o, { faces: "fronts", reverse: false })),
+            "booklet-test-1-fronts.pdf");
+          download(await ImposePdf.imposePdf(source, Object.assign({}, o, { faces: "backs" })),
+            "booklet-test-2-backs.pdf");
+        } else {
+          download(await ImposePdf.imposePdf(source, o), "booklet-test.pdf");
+        }
+      } catch (e) {
+        console.error(e);
+        setStatus("Couldn’t make the test booklet: " + (e.message || e), true);
+      }
+    });
 
     document.getElementById("testsheet").addEventListener("click", async function () {
       try {
