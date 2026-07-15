@@ -26,14 +26,18 @@
     const pageCount = srcDoc.getPageCount();
     const size = srcDoc.getPage(0).getSize();
 
-    const faces = Impose.facePlacements({
-      pageCount: pageCount,
-      scheme: opts.scheme,
-      direction: opts.direction,
-      flip: opts.flip,
-      srcWidth: size.width,
-      srcHeight: size.height,
-    });
+    const faces = Impose.selectFaces(
+      Impose.facePlacements({
+        pageCount: pageCount,
+        scheme: opts.scheme,
+        direction: opts.direction,
+        flip: opts.flip,
+        srcWidth: size.width,
+        srcHeight: size.height,
+      }),
+      opts.faces || "all",
+      !!opts.reverse
+    );
 
     const outDoc = await PDFLib.PDFDocument.create();
     const embedded = await outDoc.embedPdf(

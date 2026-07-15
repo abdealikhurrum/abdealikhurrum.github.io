@@ -18,7 +18,20 @@
     .drop input { display: none; }
 
     .controls { display: grid; gap: 14px; margin: 18px 0; grid-template-columns: 1fr; }
-    @media (min-width: 700px) { .controls { grid-template-columns: 1fr 1fr 1fr; } }
+    @media (min-width: 700px) { .controls { grid-template-columns: 1fr 1fr; } }
+
+    .printerbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+      border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface);
+      padding: 12px 14px; margin: 0 0 18px; }
+    .printerbar .lead { font-size: 0.9rem; color: var(--muted); flex: none; }
+    .printerbar select, .printerbar input[type="text"] {
+      font: inherit; font-size: 0.95rem; padding: 7px 10px; border: 1px solid var(--line);
+      border-radius: 8px; background: var(--bg, #fff); color: var(--ink); min-width: 140px;
+    }
+    .printerbar .btn { padding: 7px 14px; font-size: 0.9rem; }
+    .checkline { display: flex; gap: 8px; align-items: center; font-size: 0.95rem;
+      color: var(--ink); margin: -6px 0 14px; }
+    .checkline input { flex: none; }
     .field label { display: block; font-size: 0.9rem; color: var(--muted); margin-bottom: 6px; }
     .field select {
       width: 100%; font: inherit; font-size: 0.95rem; padding: 8px 10px;
@@ -90,12 +103,34 @@
             </select>
           </div>
           <div class="field">
-            <label for="flip">Printer duplex setting</label>
+            <label for="duplex">Double-sided printing</label>
+            <select id="duplex">
+              <option value="auto" selected>Automatic — printer prints both sides</option>
+              <option value="manual">Manual — separate fronts &amp; backs files</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="flip">Printer flip setting</label>
             <select id="flip">
               <option value="short" selected>Flip on short edge</option>
               <option value="long">Flip on long edge</option>
             </select>
           </div>
+        </div>
+
+        <div class="checkline" id="reverseline" hidden>
+          <input type="checkbox" id="reverse">
+          <label for="reverse">Backs in reverse order (use if your printer stacks pages face up / reversed)</label>
+        </div>
+
+        <div class="printerbar">
+          <span class="lead">Printer:</span>
+          <select id="printersel">
+            <option value="">— not saved —</option>
+          </select>
+          <input type="text" id="printername" placeholder="e.g. Office HP" maxlength="40">
+          <button class="btn" id="printersave" type="button">Save</button>
+          <button class="btn" id="printerdel" type="button" hidden>Delete</button>
         </div>
 
         <p class="note">Print the result double-sided on landscape sheets, then fold. Match the duplex option to your printer’s setting — if the backs come out upside down, switch it. Everything runs in your browser; the PDF never leaves your device.</p>
@@ -115,13 +150,13 @@
           <button class="btn" id="testsheet" type="button">Download printer test sheet</button>
 
           <h3>My printer can’t print double-sided</h3>
-          <p>You can duplex by hand using odd/even pages — the booklet file alternates front, back, front, back:</p>
+          <p>Set “Double-sided printing” above to <strong>Manual</strong> — you’ll get two files instead of one:</p>
           <ol>
-            <li>In the print dialog, print <strong>odd pages only</strong> (these are the sheet fronts).</li>
-            <li>Take the printed stack and put it back in the paper tray. Which way up — and whether the order must be reversed — depends on your printer, so run the test sheet through these same two steps first: print its page 1, reinsert, print <strong>even pages only</strong>, and check which sentence is upright and that it’s on the same sheet.</li>
-            <li>Print the booklet the same way: odd pages, reinsert exactly as in your test, then even pages.</li>
+            <li>Print the <strong>fronts</strong> file.</li>
+            <li>Take the printed stack and put it back in the paper tray. Which way up depends on your printer — run the test sheet through these same steps first (print its page 1, reinsert, print its page 2) and check which sentence comes out upright and on the same sheet.</li>
+            <li>Print the <strong>backs</strong> file.</li>
           </ol>
-          <p class="note">Whichever sentence read upright in your test is also the “printer duplex setting” to pick above.</p>
+          <p class="note">If your printer stacks output face up, the backs will pair with the wrong fronts — tick <strong>“Backs in reverse order”</strong> and print again. Whichever sentence read upright in your test is also the “printer flip setting” to pick above. Once it works, type a name in the Printer box and press <strong>Save</strong> — this browser will remember the settings for that printer.</p>
         </details>
 
         <div class="sheetmap" id="sheetmap">
@@ -168,8 +203,82 @@
         scheme: document.getElementById("scheme").value,
         direction: document.getElementById("direction").value,
         flip: document.getElementById("flip").value,
+        duplex: document.getElementById("duplex").value,
+        reverse: document.getElementById("reverse").checked,
       };
     }
+
+    function download(bytes, name) {
+      var blob = new Blob([bytes], { type: "application/pdf" });
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = name;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    // ── Printer profiles (kept in this browser's localStorage) ─────────────
+    var PRINTERS_KEY = "awraq.printers.v1";
+    var printersel = document.getElementById("printersel");
+    var printername = document.getElementById("printername");
+    var printerdel = document.getElementById("printerdel");
+
+    function loadPrinters() {
+      try { return JSON.parse(localStorage.getItem(PRINTERS_KEY)) || {}; }
+      catch (e) { return {}; }
+    }
+    function renderPrinters(selected) {
+      var printers = loadPrinters();
+      printersel.innerHTML = "";
+      var none = document.createElement("option");
+      none.value = ""; none.textContent = "— not saved —";
+      printersel.appendChild(none);
+      Object.keys(printers).sort().forEach(function (name) {
+        var o = document.createElement("option");
+        o.value = name; o.textContent = name;
+        if (name === selected) o.selected = true;
+        printersel.appendChild(o);
+      });
+      printerdel.hidden = !printersel.value;
+    }
+    function applyPrinter(name) {
+      var p = loadPrinters()[name];
+      if (!p) return;
+      document.getElementById("flip").value = p.flip;
+      document.getElementById("duplex").value = p.duplex;
+      document.getElementById("reverse").checked = !!p.reverse;
+      syncDuplexUi();
+      renderPlan();
+    }
+    function syncDuplexUi() {
+      document.getElementById("reverseline").hidden =
+        document.getElementById("duplex").value !== "manual";
+    }
+
+    printersel.addEventListener("change", function () {
+      printername.value = printersel.value;
+      printerdel.hidden = !printersel.value;
+      applyPrinter(printersel.value);
+    });
+    document.getElementById("printersave").addEventListener("click", function () {
+      var name = printername.value.trim() || printersel.value;
+      if (!name) { setStatus("Give the printer a name to save its settings.", true); return; }
+      var printers = loadPrinters();
+      var o = opts();
+      printers[name] = { flip: o.flip, duplex: o.duplex, reverse: o.reverse };
+      localStorage.setItem(PRINTERS_KEY, JSON.stringify(printers));
+      renderPrinters(name);
+      setStatus('Saved settings for "' + name + '" (stored in this browser).');
+    });
+    printerdel.addEventListener("click", function () {
+      if (!printersel.value) return;
+      var printers = loadPrinters();
+      delete printers[printersel.value];
+      localStorage.setItem(PRINTERS_KEY, JSON.stringify(printers));
+      printername.value = "";
+      renderPrinters("");
+      setStatus("Printer removed.");
+    });
 
     function slotLabel(n) {
       return n > pageCount ? "blank" : String(n);
@@ -237,15 +346,20 @@
       try {
         var o = opts();
         o.pdfLib = PDFLib;
-        var out = await ImposePdf.imposePdf(srcBytes, o);
-        var blob = new Blob([out], { type: "application/pdf" });
-        var a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = srcName + "-booklet.pdf";
-        a.click();
-        URL.revokeObjectURL(a.href);
-        renderPlan();
-        setStatus(statusEl.textContent + " Booklet PDF downloaded.");
+        if (o.duplex === "manual") {
+          var fronts = await ImposePdf.imposePdf(srcBytes, Object.assign({}, o, { faces: "fronts", reverse: false }));
+          var backs = await ImposePdf.imposePdf(srcBytes, Object.assign({}, o, { faces: "backs" }));
+          download(fronts, srcName + "-booklet-1-fronts.pdf");
+          download(backs, srcName + "-booklet-2-backs.pdf");
+          renderPlan();
+          setStatus(statusEl.textContent + " Two files downloaded: print the fronts file, reinsert the stack, then print the backs file." +
+            (o.reverse ? " Backs are in reverse order." : ""));
+        } else {
+          var out = await ImposePdf.imposePdf(srcBytes, o);
+          download(out, srcName + "-booklet.pdf");
+          renderPlan();
+          setStatus(statusEl.textContent + " Booklet PDF downloaded.");
+        }
       } catch (e) {
         console.error(e);
         setStatus("Imposition failed: " + (e.message || e), true);
@@ -262,10 +376,15 @@
         if (ev === "drop" && e.dataTransfer.files.length) loadFile(e.dataTransfer.files[0]);
       });
     });
-    ["scheme", "direction", "flip"].forEach(function (id) {
-      document.getElementById(id).addEventListener("change", renderPlan);
+    ["scheme", "direction", "flip", "duplex"].forEach(function (id) {
+      document.getElementById(id).addEventListener("change", function () {
+        syncDuplexUi();
+        renderPlan();
+      });
     });
     goBtn.addEventListener("click", impose);
+    renderPrinters("");
+    syncDuplexUi();
 
     document.getElementById("testsheet").addEventListener("click", async function () {
       try {

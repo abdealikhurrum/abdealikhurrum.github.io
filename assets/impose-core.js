@@ -107,5 +107,24 @@
     return { x: slot.x, y: slot.y, rotateDeg: 0 };
   }
 
-  return { plan: plan, facePlacements: facePlacements, drawParams: drawParams };
+  /* Manual (non-duplex) printing: faces alternate front, back, front, back.
+   * 'fronts'/'backs' filter them; reverse=true flips the selected order for
+   * printers that stack their output in reverse. */
+  function selectFaces(faces, which, reverse) {
+    if (which !== "all" && which !== "fronts" && which !== "backs") {
+      throw new Error("which must be 'all', 'fronts' or 'backs'");
+    }
+    let out = faces.slice();
+    if (which === "fronts") out = out.filter(function (_, i) { return i % 2 === 0; });
+    if (which === "backs") out = out.filter(function (_, i) { return i % 2 === 1; });
+    if (reverse) out.reverse();
+    return out;
+  }
+
+  return {
+    plan: plan,
+    facePlacements: facePlacements,
+    drawParams: drawParams,
+    selectFaces: selectFaces,
+  };
 }));
