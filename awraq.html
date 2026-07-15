@@ -36,6 +36,15 @@
     .sheetmap th, .sheetmap td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); }
     .sheetmap tr:last-child td { border-bottom: none; }
     .sheetmap .blank { color: var(--muted); }
+
+    details.guide { border: 1px solid var(--line); border-radius: var(--radius);
+      background: var(--surface); padding: 14px 16px; margin-top: 22px; }
+    details.guide summary { cursor: pointer; font-weight: 600; color: var(--ink); }
+    details.guide h3 { font-size: 1rem; margin: 18px 0 6px; }
+    details.guide ol { margin: 8px 0 8px 22px; padding: 0; }
+    details.guide li { margin: 6px 0; }
+    details.guide p, details.guide li { font-size: 0.95rem; color: var(--ink); }
+    details.guide .btn { margin: 8px 0 4px; }
   </style>
 </head>
 <body>
@@ -93,6 +102,27 @@
 
         <p class="status" id="status">No file loaded.</p>
         <button class="btn" id="go" disabled>Make booklet PDF</button>
+
+        <details class="guide">
+          <summary>Printer guide — test your duplex setting, or print without a duplexer</summary>
+
+          <h3>Which flip setting does my printer use?</h3>
+          <ol>
+            <li>Download the one-sheet test file and print it <strong>double-sided, landscape, actual size</strong>.</li>
+            <li>Pick up the printed sheet and turn it over like a book page (around its left or right edge).</li>
+            <li>One sentence on the back will read the right way up — it names the duplex setting to choose above. You only need to do this once per printer.</li>
+          </ol>
+          <button class="btn" id="testsheet" type="button">Download printer test sheet</button>
+
+          <h3>My printer can’t print double-sided</h3>
+          <p>You can duplex by hand using odd/even pages — the booklet file alternates front, back, front, back:</p>
+          <ol>
+            <li>In the print dialog, print <strong>odd pages only</strong> (these are the sheet fronts).</li>
+            <li>Take the printed stack and put it back in the paper tray. Which way up — and whether the order must be reversed — depends on your printer, so run the test sheet through these same two steps first: print its page 1, reinsert, print <strong>even pages only</strong>, and check which sentence is upright and that it’s on the same sheet.</li>
+            <li>Print the booklet the same way: odd pages, reinsert exactly as in your test, then even pages.</li>
+          </ol>
+          <p class="note">Whichever sentence read upright in your test is also the “printer duplex setting” to pick above.</p>
+        </details>
 
         <div class="sheetmap" id="sheetmap">
           <h2>Sheet plan</h2>
@@ -236,6 +266,21 @@
       document.getElementById(id).addEventListener("change", renderPlan);
     });
     goBtn.addEventListener("click", impose);
+
+    document.getElementById("testsheet").addEventListener("click", async function () {
+      try {
+        var bytes = await ImposePdf.makeTestSheet({ pdfLib: PDFLib });
+        var blob = new Blob([bytes], { type: "application/pdf" });
+        var a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "printer-test-sheet.pdf";
+        a.click();
+        URL.revokeObjectURL(a.href);
+      } catch (e) {
+        console.error(e);
+        setStatus("Couldn’t make the test sheet: " + (e.message || e), true);
+      }
+    });
   })();
   </script>
 </body>
