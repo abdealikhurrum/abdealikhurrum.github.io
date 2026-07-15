@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Awraq Booklet Maker — Abdeali Khurrum</title>
+  <meta name="description" content="Turn a reader-order PDF into a print-ready right-to-left booklet: single-signature saddle fold or independent 4-side quires. Runs entirely in your browser.">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    /* Page-local styles for the booklet tool. Shared chrome comes from styles.css. */
+    .drop {
+      border: 2px dashed var(--line); border-radius: var(--radius); background: var(--surface);
+      padding: 28px 20px; text-align: center; color: var(--muted); cursor: pointer;
+      transition: border-color .15s ease, background .15s ease;
+    }
+    .drop:hover, .drop.dragover { border-color: var(--accent); background: #f3f6f5; }
+    .drop strong { color: var(--ink); }
+    .drop input { display: none; }
+
+    .controls { display: grid; gap: 14px; margin: 18px 0; grid-template-columns: 1fr; }
+    @media (min-width: 700px) { .controls { grid-template-columns: 1fr 1fr 1fr; } }
+    .field label { display: block; font-size: 0.9rem; color: var(--muted); margin-bottom: 6px; }
+    .field select {
+      width: 100%; font: inherit; font-size: 0.95rem; padding: 8px 10px;
+      border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink);
+    }
+    .btn[disabled] { opacity: 0.5; pointer-events: none; }
+    .status { font-size: 0.95rem; color: var(--muted); min-height: 1.3em; margin: 10px 0; }
+    .status.warn { color: #a15c00; }
+
+    .sheetmap { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface);
+      padding: 14px 16px; margin-top: 16px; display: none; }
+    .sheetmap.show { display: block; }
+    .sheetmap h2 { margin: 0 0 8px; font-size: 1rem; }
+    .sheetmap table { border-collapse: collapse; width: 100%; font-size: 0.92rem; }
+    .sheetmap th, .sheetmap td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); }
+    .sheetmap tr:last-child td { border-bottom: none; }
+    .sheetmap .blank { color: var(--muted); }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap">
+      <a class="wordmark" href="index.html">Abdeali Khurrum</a>
+      <nav class="site-nav">
+        <a href="index.html">Projects</a>
+        <a href="privacy.html">Privacy</a>
+        <a href="contact.html">Contact</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="wrap">
+      <div class="page-head">
+        <p class="eyebrow">Tool</p>
+        <h1>Awraq Booklet Maker</h1>
+        <p class="tagline">Turn a reader-order PDF into print-ready, right-to-left booklet sheets — folded and ordered correctly.</p>
+      </div>
+
+      <section>
+        <label class="drop" id="drop">
+          <strong>Drop a PDF here</strong> or click to choose one.<br>
+          Pages should be in reading order, one booklet page per PDF page.
+          <input type="file" id="file" accept="application/pdf">
+        </label>
+
+        <div class="controls">
+          <div class="field">
+            <label for="scheme">Booklet form</label>
+            <select id="scheme">
+              <option value="saddle" selected>Single signature — all sheets nested, folded once</option>
+              <option value="quire4">4-side quires — each sheet folds on its own</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="direction">Opens</label>
+            <select id="direction">
+              <option value="rtl" selected>Right to left (Arabic / Lisān ud-Daʿwat)</option>
+              <option value="ltr">Left to right</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="flip">Printer duplex setting</label>
+            <select id="flip">
+              <option value="short" selected>Flip on short edge</option>
+              <option value="long">Flip on long edge</option>
+            </select>
+          </div>
+        </div>
+
+        <p class="note">Print the result double-sided on landscape sheets, then fold. Match the duplex option to your printer’s setting — if the backs come out upside down, switch it. Everything runs in your browser; the PDF never leaves your device.</p>
+
+        <p class="status" id="status">No file loaded.</p>
+        <button class="btn" id="go" disabled>Make booklet PDF</button>
+
+        <div class="sheetmap" id="sheetmap">
+          <h2>Sheet plan</h2>
+          <table>
+            <thead><tr><th>Sheet</th><th>Front (left · right)</th><th>Back (left · right)</th></tr></thead>
+            <tbody id="sheetrows"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <p>© 2026 Abdeali Khurrum · <a href="privacy.html">Privacy</a> · <a href="contact.html">Contact</a></p>
+    </div>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <script src="assets/impose-core.js"></script>
+  <script src="assets/impose-pdf.js"></script>
+  <script>
+  (function () {
+    "use strict";
+    var drop = document.getElementById("drop");
+    var fileInput = document.getElementById("file");
+    var statusEl = document.getElementById("status");
+    var goBtn = document.getElementById("go");
+    var sheetmap = document.getElementById("sheetmap");
+    var sheetrows = document.getElementById("sheetrows");
+
+    var srcBytes = null;
+    var srcName = "booklet";
+    var pageCount = 0;
+
+    function setStatus(msg, warn) {
+      statusEl.textContent = msg;
+      statusEl.classList.toggle("warn", !!warn);
+    }
+
+    function opts() {
+      return {
+        scheme: document.getElementById("scheme").value,
+        direction: document.getElementById("direction").value,
+        flip: document.getElementById("flip").value,
+      };
+    }
+
+    function slotLabel(n) {
+      return n > pageCount ? "blank" : String(n);
+    }
+
+    function renderPlan() {
+      if (!pageCount) { sheetmap.classList.remove("show"); return; }
+      var o = opts();
+      var p = Impose.plan({ pageCount: pageCount, scheme: o.scheme, direction: o.direction });
+      var blankNote = p.blanks.length ? " (+" + p.blanks.length + " blank to fill the fold)" : "";
+      setStatus(pageCount + " pages → " + p.sheets.length + " sheet" +
+        (p.sheets.length === 1 ? "" : "s") + ", " + p.paddedCount + " sides" + blankNote + ".");
+      sheetrows.innerHTML = "";
+      p.sheets.forEach(function (s, i) {
+        var tr = document.createElement("tr");
+        [String(i + 1),
+         slotLabel(s.front[0]) + " · " + slotLabel(s.front[1]),
+         slotLabel(s.back[0]) + " · " + slotLabel(s.back[1])].forEach(function (text, col) {
+          var td = document.createElement(col === 0 ? "th" : "td");
+          if (text.indexOf("blank") !== -1) td.className = "blank";
+          td.textContent = text;
+          tr.appendChild(td);
+        });
+        sheetrows.appendChild(tr);
+      });
+      sheetmap.classList.add("show");
+    }
+
+    async function loadFile(file) {
+      if (!file || file.type !== "application/pdf") {
+        setStatus("That doesn’t look like a PDF.", true);
+        return;
+      }
+      try {
+        var buf = await file.arrayBuffer();
+        var doc = await PDFLib.PDFDocument.load(buf, { ignoreEncryption: false });
+        srcBytes = buf;
+        srcName = file.name.replace(/\.pdf$/i, "");
+        pageCount = doc.getPageCount();
+
+        // Warn (don't block) if page sizes vary — every page is placed in a
+        // slot sized from page 1.
+        var first = doc.getPage(0).getSize();
+        var uniform = doc.getPages().every(function (pg) {
+          var s = pg.getSize();
+          return Math.abs(s.width - first.width) < 1 && Math.abs(s.height - first.height) < 1;
+        });
+        goBtn.disabled = false;
+        renderPlan();
+        if (!uniform) {
+          setStatus(statusEl.textContent + " Note: pages are not all the same size; slots use the first page’s size.", true);
+        }
+      } catch (e) {
+        console.error(e);
+        srcBytes = null; pageCount = 0; goBtn.disabled = true;
+        sheetmap.classList.remove("show");
+        setStatus("Couldn’t read that PDF" + (String(e.message || "").match(/encrypt/i) ? " — it appears to be password-protected." : "."), true);
+      }
+    }
+
+    async function impose() {
+      if (!srcBytes) return;
+      goBtn.disabled = true;
+      setStatus("Imposing…");
+      try {
+        var o = opts();
+        o.pdfLib = PDFLib;
+        var out = await ImposePdf.imposePdf(srcBytes, o);
+        var blob = new Blob([out], { type: "application/pdf" });
+        var a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = srcName + "-booklet.pdf";
+        a.click();
+        URL.revokeObjectURL(a.href);
+        renderPlan();
+        setStatus(statusEl.textContent + " Booklet PDF downloaded.");
+      } catch (e) {
+        console.error(e);
+        setStatus("Imposition failed: " + (e.message || e), true);
+      } finally {
+        goBtn.disabled = false;
+      }
+    }
+
+    fileInput.addEventListener("change", function () { loadFile(fileInput.files[0]); });
+    ["dragover", "dragleave", "drop"].forEach(function (ev) {
+      drop.addEventListener(ev, function (e) {
+        e.preventDefault();
+        drop.classList.toggle("dragover", ev === "dragover");
+        if (ev === "drop" && e.dataTransfer.files.length) loadFile(e.dataTransfer.files[0]);
+      });
+    });
+    ["scheme", "direction", "flip"].forEach(function (id) {
+      document.getElementById(id).addEventListener("change", renderPlan);
+    });
+    goBtn.addEventListener("click", impose);
+  })();
+  </script>
+</body>
+</html>
