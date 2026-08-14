@@ -24,25 +24,39 @@
       <div class="page-head">
         <p class="eyebrow">LigaCheh Keyboard · Windows</p>
         <h1>LigaCheh for Windows</h1>
-        <p class="tagline">An MSKLC keyboard layout.</p>
+        <p class="tagline">An input method with text prediction, plus the original keyboard layout.</p>
       </div>
 
       <section>
-        <p>A Lisān ud-Daʿwat keyboard layout for Windows, authored with the <a href="https://www.microsoft.com/en-us/download/details.aspx?id=102134">Microsoft Keyboard Layout Creator (MSKLC)</a>.</p>
+        <p>Two ways to type Lisān ud-Daʿwat on Windows. The <strong>input method</strong> is the fuller one — it adds text prediction, a phonetic layout, and a diacritic layer on Caps Lock. The <strong>keyboard layout</strong> is the older, simpler option: key mappings only, no prediction.</p>
       </section>
 
       <section>
-        <h2>Install</h2>
+        <h2>Input method</h2>
+        <p>A Text Services Framework input method carrying two profiles — a Lisān ud-Daʿwat layout and a LigaCheh Roman mode that transliterates as you type — sharing the prediction engine with the iOS and Android keyboards. The installer also sets up the FatemiMaqala font and a <strong>LSD Settings</strong> entry in the Start menu.</p>
+        <ul>
+          <li>Run the installer and approve the elevation prompt — it needs administrator rights to register the input method and install the font.</li>
+          <li>Keep the machine online for the first install: it fetches the Visual C++ runtime if that is not already present.</li>
+          <li>Switch to it from the language bar, or with <em>Windows + Space</em>.</li>
+        </ul>
+        <div class="btn-row">
+          <a class="btn" href="https://github.com/abdealikhurrum/abdealikhurrum.github.io/releases/download/ime-2026-08-14/LigaCheh-Windows-IME-2.1.0.exe">Download for Windows (33 MB)</a>
+        </div>
+        <p class="note">Version 2.1.0, for 64-bit Windows 10 and 11. The installer is signed with an extended-validation certificate issued to Exordium Networks Inc., so Windows should install it without a SmartScreen warning.</p>
+      </section>
+
+      <section>
+        <h2>Keyboard layout only</h2>
+        <p>A Lisān ud-Daʿwat keyboard layout authored with the <a href="https://www.microsoft.com/en-us/download/details.aspx?id=102134">Microsoft Keyboard Layout Creator (MSKLC)</a>. No prediction, and it must be built before use.</p>
         <ul>
           <li>Download the layout source: <a href="assets/keyboard/maqalaAra.klc">maqalaAra.klc</a></li>
           <li>Open it in MSKLC (<em>File → Load Source File…</em>), then <em>Project → Build DLL and Setup Package</em>.</li>
           <li>Run the generated <code>setup.exe</code>, then add the layout under <em>Settings → Time &amp; language → Language &amp; region</em>.</li>
         </ul>
+        <div class="btn-row">
+          <a class="btn secondary" href="assets/keyboard/maqalaAra.klc">Download .klc layout</a>
+        </div>
       </section>
-
-      <div class="btn-row">
-        <a class="btn" href="assets/keyboard/maqalaAra.klc">Download .klc layout</a>
-      </div>
 
       <p class="note">Prefer a cross-platform option? The <a href="https://keyman.com/">Keyman</a> package also runs on Windows — see <a href="keyboard.html">More platforms</a>.</p>
 
