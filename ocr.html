@@ -227,6 +227,50 @@
       });
     }
 
+    // Flat-field illumination correction for photos. Phone photos of a page
+    // carry a glare/shadow gradient that wrecks recognition (a real Lisān page
+    // photo went from ~56% to ~31% CER with this); clean scans/PDFs have nearly
+    // uniform lighting and are left untouched — tesseract handles those best,
+    // and flat-fielding them actually hurts. We auto-detect by measuring the
+    // background lighting spread. Mirrors ocr/preprocess.py (auto + flatfield).
+    var ILLUM_THRESHOLD = 0.18;
+    function autoPreprocess(canvas) {
+      var w = canvas.width, h = canvas.height;
+      if (!w || !h) return canvas;
+      var ctx = canvas.getContext("2d");
+      var d = ctx.getImageData(0, 0, w, h).data;
+      var n = w * h, gray = new Float32Array(n), q = 0;
+      for (var i = 0; i < d.length; i += 4, q++)
+        gray[q] = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+      // background = heavy Gaussian blur (must be smooth enough to erase text,
+      // leaving only the lighting field — a coarse downscale is NOT enough).
+      var bgC = document.createElement("canvas"); bgC.width = w; bgC.height = h;
+      var bctx = bgC.getContext("2d");
+      bctx.filter = "blur(" + Math.max(8, Math.round(Math.min(w, h) * 0.06)) + "px)";
+      bctx.drawImage(canvas, 0, 0);
+      bctx.filter = "none";
+      var bd = bctx.getImageData(0, 0, w, h).data;
+      var bg = new Float32Array(n); q = 0;
+      for (var j = 0; j < bd.length; j += 4, q++)
+        bg[q] = 0.299 * bd[j] + 0.587 * bd[j + 1] + 0.114 * bd[j + 2];
+      // illumination non-uniformity = (p95 − p5)/255 of the background
+      var bsort = Float32Array.from(bg).sort();
+      var metric = (bsort[(0.95 * n) | 0] - bsort[(0.05 * n) | 0]) / 255;
+      if (metric <= ILLUM_THRESHOLD) return canvas;   // clean scan → leave alone
+      // flatfield: divide out the background, rescale so the 99th pct → 255
+      var norm = new Float32Array(n);
+      for (var k = 0; k < n; k++) norm[k] = gray[k] / (bg[k] + 1);
+      var hi = Float32Array.from(norm).sort()[(0.99 * n) | 0] || 1;
+      var outImg = ctx.createImageData(w, h), od = outImg.data;
+      for (var m = 0, p = 0; m < od.length; m += 4, p++) {
+        var v = norm[p] / hi * 255; v = v < 0 ? 0 : (v > 255 ? 255 : v);
+        od[m] = od[m + 1] = od[m + 2] = v; od[m + 3] = 255;
+      }
+      var out = document.createElement("canvas"); out.width = w; out.height = h;
+      out.getContext("2d").putImageData(outImg, 0, 0);
+      return out;
+    }
+
     async function renderPdfPages(file) {
       var data = new Uint8Array(await file.arrayBuffer());
       var pdf = await pdfjsLib.getDocument({ data: data }).promise;
@@ -315,7 +359,9 @@
         } else {
           var imgEl = await loadImageEl(currentFile);
           var src = fitForOcr(imgEl, imgEl.naturalWidth || imgEl.width, imgEl.naturalHeight || imgEl.height);
-          var result = await Tesseract.recognize(src, lang, opts);
+          var pre = autoPreprocess(src);
+          if (pre !== src) setStatus("Evening out photo lighting…");
+          var result = await Tesseract.recognize(pre, lang, opts);
           out.value = (result.data.text || "").trim();
         }
         rawText = out.value;

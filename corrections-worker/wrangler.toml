@@ -12,8 +12,7 @@ ALLOWED_ORIGIN = "https://abdealikhurrum.github.io"
 MAX_IMAGE_KB = "4096"
 RATE_PER_HOUR = "20"
 
-# Optional rate limiting. Create a KV namespace and uncomment to enable:
-#   wrangler kv namespace create RATELIMIT
-# [[kv_namespaces]]
-# binding = "RATELIMIT"
-# id = "<the id wrangler prints>"
+# Rate limiting (per-IP, RATE_PER_HOUR) via KV.
+[[kv_namespaces]]
+binding = "RATELIMIT"
+id = "edf9706f711e4182ac46b14876683602"
